@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VinylShop Pro - ระบบจัดการงานป้ายไวนิล</title>
+    
+    <!-- Google Fonts: Prompt สำหรับภาษาไทย -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM (UMD) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, Component } = React;
+
+        // ลิงก์ Google Drive กลางของร้านป้ายไวนิล
+        const DEFAULT_SHOP_DRIVE_URL = 'https://drive.google.com/drive/folders/1tj0L-I8Ba59tHRmJwsvrMZMT21TmNhC1?usp=sharing';
+
+        const STATUSES = [
+            { id: 1, label: 'รอออกแบบ', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: 'fa-clock' },
+            { id: 2, label: 'กำลังออกแบบ', color: 'bg-blue-100 text-blue-800 border-blue-300', icon: 'fa-palette' },
+            { id: 3, label: 'รอผลิต', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: 'fa-hourglass-half' },
+            { id: 4, label: 'กำลังผลิต', color: 'bg-purple-100 text-purple-800 border-purple-300', icon: 'fa-print' },
+            { id: 5, label: 'ผลิตเสร็จ', color: 'bg-green-100 text-green-800 border-green-300', icon: 'fa-check-circle' },
+            { id: 6, label: 'พร้อมส่ง', color: 'bg-teal-100 text-teal-800 border-teal-300', icon: 'fa-truck' },
+            { id: 7, label: 'ส่งสาขาอื่นทำ', color: 'bg-indigo-100 text-indigo-800 border-indigo-300', icon: 'fa-paper-plane' },
+            { id: 8, label: 'จบงานแล้ว', color: 'bg-slate-200 text-slate-700 border-slate-300', icon: 'fa-box-archive' },
+            { id: 9, label: 'แก้ไขแบบผิดพลาด', color: 'bg-rose-100 text-rose-800 border-rose-300', icon: 'fa-triangle-exclamation' },
+        ];
+
+        const ROLES = [
+            { id: 'clerk', label: 'เสมียน (รับงาน / ประสานงาน / ส่งมอบ)', icon: 'fa-headset' },
+            { id: 'graphic', label: 'กราฟฟิก (ออกแบบ / ตรวจไฟล์)', icon: 'fa-pen-nib' },
+            { id: 'production', label: 'ฝ่ายผลิต (พิมพ์ / ตัด / ตอกตาไก่)', icon: 'fa-gears' },
+        ];
+
+        const INITIAL_JOBS = [
+            { id: 'JOB-101', customer: 'ร้านกาแฟสด Me Coffee', phone: '081-234-5678', dueDate: 'พรุ่งนี้ 15:00 น.', price: '450', details: 'ไวนิลหน้าเดียว 3x1.5 เมตร พับขอบตอกตาไก่ 4 มุม ขอโทนสีมินิมอล', status: 1, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), file: null, fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: true, createdAt: Date.now() - 40000 },
+            { id: 'JOB-102', customer: 'มินิมาร์ท 24 ชม. สาขา 2', phone: '089-999-8877', dueDate: '25 ต.ค.', price: '1,200', details: 'ป้ายฟิวเจอร์บอร์ด 60x80 ซม. จำนวน 5 แผ่น (โปรโมชั่นหน้าร้าน)', status: 2, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), file: null, fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false, createdAt: Date.now() - 30000 },
+        ];
+
+        class ErrorBoundary extends Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, errorInfo) { console.error("ErrorBoundary caught an error", error, errorInfo); }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 text-center">
+                            <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-200 max-w-md w-full">
+                                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i className="fas fa-triangle-exclamation text-2xl"></i>
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-2">ระบบเกิดข้อผิดพลาด</h2>
+                                <p className="text-gray-600 text-sm mb-6 break-words">{this.state.error?.message || "เกิดข้อผิดพลาดในการแสดงผล"}</p>
+                                <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition">
+                                    โหลดหน้าเว็บใหม่อีกครั้ง
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [jobs, setJobs] = useState(INITIAL_JOBS);
+            const [isCloudConnected, setIsCloudConnected] = useState(false);
+            const [isLoadingCloud, setIsLoadingCloud] = useState(true);
+
+            const [isAddingJob, setIsAddingJob] = useState(false);
+            const [editingJob, setEditingJob] = useState(null);
+            const [isSaving, setIsSaving] = useState(false);
+            const [printingJob, setPrintingJob] = useState(null);
+            const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
+            const [sharingTab, setSharingTab] = useState('github');
+            
+            // ใช้ State สำหรับเก็บ URL ของ Google Apps Script
+            const [gasUrlInput, setGasUrlInput] = useState(() => {
+                try { return localStorage.getItem('vinylshop_gas_url') || ''; } catch (e) { return ''; }
+            });
+            
+            const [shopDriveUrl, setShopDriveUrl] = useState(DEFAULT_SHOP_DRIVE_URL);
+            const [newJob, setNewJob] = useState({ customer: '', phone: '', dueDate: '', price: '', details: '', file: null, fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false });
+            
+            const [searchQuery, setSearchQuery] = useState('');
+            const [statusFilter, setStatusFilter] = useState(null);
+            const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+            const [rowFileErrors, setRowFileErrors] = useState({});
+            const [toast, setToast] = useState(null);
+
+            const importInputRef = useRef(null);
+
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            // ระบบดึงข้อมูลจาก Google Sheets
+            useEffect(() => {
+                let intervalId = null;
+
+                const fetchFromSheets = async (url) => {
+                    try {
+                        const response = await fetch(url);
+                        const fetchedJobs = await response.json();
+                        if (Array.isArray(fetchedJobs) && fetchedJobs.length > 0) {
+                            fetchedJobs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                            // Map ค่ากลับให้ตรงกับ State
+                            const formattedJobs = fetchedJobs.map(job => ({
+                                ...job,
+                                urgent: job.urgent === true || job.urgent === 'true',
+                                status: parseInt(job.status) || 1,
+                                createdAt: parseInt(job.createdAt) || Date.now()
+                            }));
+                            setJobs(formattedJobs);
+                            setIsCloudConnected(true);
+                        } else if (fetchedJobs.length === 0) {
+                            setJobs([]); // ถ้าตารางว่างเปล่า
+                            setIsCloudConnected(true);
+                        }
+                    } catch (err) {
+                        console.error("Sheets sync error:", err);
+                        setIsCloudConnected(false);
+                    }
+                    setIsLoadingCloud(false);
+                };
+
+                const savedUrl = localStorage.getItem('vinylshop_gas_url');
+                if (savedUrl && savedUrl.includes('script.google.com')) {
+                    setIsCloudConnected(true);
+                    fetchFromSheets(savedUrl);
+                    // รีเฟรชข้อมูลอัตโนมัติทุกๆ 10 วินาที เพื่อให้เห็นคิวงานจากคนอื่น
+                    intervalId = setInterval(() => fetchFromSheets(savedUrl), 10000);
+                } else {
+                    try {
+                        const savedLocalJobs = localStorage.getItem('vinylshop_local_jobs');
+                        if (savedLocalJobs) setJobs(JSON.parse(savedLocalJobs));
+                    } catch (e) {}
+                    setIsLoadingCloud(false);
+                }
+
+                return () => {
+                    if (intervalId) clearInterval(intervalId);
+                };
+            }, []);
+
+            // เซฟลง LocalStorage สำรองไว้เสมอ
+            useEffect(() => {
+                try {
+                    localStorage.setItem('vinylshop_local_jobs', JSON.stringify(jobs));
+                } catch (e) {}
+            }, [jobs]);
+
+            // ส่งข้อมูลไปบันทึกที่ Google Sheets (POST)
+            const saveJobToCloud = async (jobData) => {
+                const url = localStorage.getItem('vinylshop_gas_url');
+                if (url) {
+                    try {
+                        // ป้องกันการส่งไฟล์แนบภาพ (Base64) ไปเก็บบน Google Sheets (ดึงออกก่อน)
+                        const safeJobData = { ...jobData };
+                        if (safeJobData.file) safeJobData.file = null; 
+                        
+                        await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'update', job: safeJobData })
+                        });
+                    } catch (err) {
+                        console.error('Save to Sheets error:', err);
+                    }
+                }
+            };
+
+            // ลบข้อมูลบน Google Sheets
+            const deleteJobFromCloud = async (jobId) => {
+                const url = localStorage.getItem('vinylshop_gas_url');
+                if (url) {
+                    try {
+                        await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'delete', job: { id: jobId } })
+                        });
+                    } catch (err) {
+                        console.error('Delete from Sheets error:', err);
+                    }
+                }
+            };
+
+            // จัดการไฟล์ภาพแนบให้อยู่ในเครื่อง
+            const processFileObject = (fileObj) => {
+                return new Promise((resolve) => {
+                    if (!fileObj) return resolve(null);
+                    if (!(fileObj instanceof File)) return resolve(fileObj);
+
+                    if (fileObj.size <= 600 * 1024) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            resolve({ name: fileObj.name, url: e.target.result, size: fileObj.size });
+                        };
+                        reader.onerror = () => {
+                            resolve({ name: fileObj.name, url: URL.createObjectURL(fileObj), size: fileObj.size });
+                        };
+                        reader.readAsDataURL(fileObj);
+                    } else {
+                        resolve({ name: fileObj.name, url: URL.createObjectURL(fileObj), size: fileObj.size });
+                    }
+                });
+            };
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const name = formData.get('name')?.trim();
+                const role = formData.get('role');
+                if (name && role) {
+                    setUser({ name, role });
+                    showToast(`ยินดีต้อนรับ คุณ${name}`);
+                }
+            };
+
+            const handleSaveJob = async (e) => {
+                e.preventDefault();
+                if (isSaving) return;
+                if (!newJob.customer.trim() || !newJob.details.trim()) return;
+
+                setIsSaving(true);
+                const fileData = await processFileObject(newJob.file);
+
+                if (editingJob) {
+                    const updatedJob = {
+                        ...editingJob,
+                        customer: newJob.customer,
+                        phone: newJob.phone || '',
+                        dueDate: newJob.dueDate || '',
+                        price: newJob.price || '',
+                        details: newJob.details,
+                        urgent: newJob.urgent,
+                        fileLink: newJob.fileLink || '',
+                        file: fileData !== undefined ? fileData : editingJob.file
+                    };
+                    setJobs(jobs.map(j => j.id === editingJob.id ? updatedJob : j));
+                    saveJobToCloud(updatedJob);
+                    showToast('อัปเดตข้อมูลงานเรียบร้อยแล้ว');
+                } else {
+                    const nextNum = jobs.length > 0 ? Math.max(...jobs.map(j => parseInt(j.id.replace('JOB-', '')) || 100)) + 1 : 101;
+                    const job = {
+                        id: `JOB-${nextNum}`,
+                        customer: newJob.customer,
+                        phone: newJob.phone || '',
+                        dueDate: newJob.dueDate || '',
+                        price: newJob.price || '',
+                        details: newJob.details,
+                        status: 1,
+                        createdBy: user.name,
+                        date: new Date().toLocaleDateString('th-TH'),
+                        file: fileData,
+                        fileLink: newJob.fileLink || '',
+                        urgent: newJob.urgent,
+                        createdAt: Date.now()
+                    };
+                    setJobs([job, ...jobs]);
+                    saveJobToCloud(job);
+                    showToast('สร้างรายการงานใหม่สำเร็จ');
+                }
+                resetForm();
+            };
+
+            const handleStartEdit = (job) => {
+                setEditingJob(job);
+                setNewJob({
+                    customer: job.customer || '',
+                    phone: job.phone || '',
+                    dueDate: job.dueDate || '',
+                    price: job.price || '',
+                    details: job.details || '',
+                    file: job.file || null,
+                    fileLink: job.fileLink || '',
+                    urgent: job.urgent || false
+                });
+                setIsAddingJob(true);
+            };
+
+            const resetForm = () => {
+                setIsAddingJob(false);
+                setEditingJob(null);
+                setNewJob({ customer: '', phone: '', dueDate: '', price: '', details: '', file: null, fileLink: shopDriveUrl, urgent: false });
+                setIsSaving(false);
+            };
+
+            const handleDownloadHtmlApp = (fileName = 'index.html') => {
+                const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`ดาวน์โหลดไฟล์ ${fileName} สำเร็จ!`);
+            };
+
+            // บันทึกลิงก์ Google Sheets Web App
+            const handleSaveGasUrl = () => {
+                try {
+                    if (!gasUrlInput.trim()) {
+                        localStorage.removeItem('vinylshop_gas_url');
+                        showToast('ล้างการเชื่อมต่อ Google Sheets แล้ว', 'info');
+                        setTimeout(() => window.location.reload(), 1200);
+                        return;
+                    }
+                    if (gasUrlInput.includes('script.google.com') && gasUrlInput.endsWith('/exec')) {
+                        localStorage.setItem('vinylshop_gas_url', gasUrlInput.trim());
+                        showToast('บันทึก Web App URL สำเร็จ! กำลังโหลดใหม่...');
+                        setTimeout(() => window.location.reload(), 1200);
+                    } else {
+                        showToast('URL ไม่ถูกต้อง ต้องเป็นลิงก์ที่มาจาก script.google.com และลงท้ายด้วย /exec', 'info');
+                    }
+                } catch (err) {
+                    showToast('เกิดข้อผิดพลาดในการบันทึก URL', 'info');
+                }
+            };
+
+            const handleDeleteJob = async (id) => {
+                const target = jobs.find(j => j.id === id);
+                if (target?.file?.url && target.file.url.startsWith('blob:')) {
+                    URL.revokeObjectURL(target.file.url);
+                }
+                setJobs(jobs.filter(j => j.id !== id));
+                await deleteJobFromCloud(id);
+                setConfirmDeleteId(null);
+                showToast('ลบรายการงานแล้ว', 'info');
+            };
+
+            const handleChangeStatus = async (id, newStatus) => {
+                const target = jobs.find(j => j.id === id);
+                if (!target) return;
+                const updated = { ...target, status: newStatus };
+                setJobs(jobs.map(j => j.id === id ? updated : j));
+                await saveJobToCloud(updated);
+                const stLabel = STATUSES.find(s => s.id === newStatus)?.label;
+                showToast(`เปลี่ยนสถานะเป็น "${stLabel}"`);
+            };
+
+            const handleRowFileChange = async (jobId, e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > 1073741824) {
+                    setRowFileErrors(prev => ({ ...prev, [jobId]: 'ขนาดไฟล์เกิน 1GB' }));
+                    e.target.value = null;
+                    return;
+                }
+                setRowFileErrors(prev => ({ ...prev, [jobId]: '' }));
+                const fileData = await processFileObject(file);
+                const target = jobs.find(j => j.id === jobId);
+                if (target) {
+                    const updated = { ...target, file: fileData };
+                    setJobs(jobs.map(j => j.id === jobId ? updated : j));
+                    showToast('แนบไฟล์เข้าเครื่องนี้เรียบร้อย (ไม่ซิงค์รูปขึ้น Cloud)');
+                }
+            };
+
+            const handleRemoveRowFile = async (jobId) => {
+                const target = jobs.find(j => j.id === jobId);
+                if (target?.file?.url && target.file.url.startsWith('blob:')) {
+                    URL.revokeObjectURL(target.file.url);
+                }
+                if (target) {
+                    const updated = { ...target, file: null };
+                    setJobs(jobs.map(j => j.id === jobId ? updated : j));
+                    showToast('ลบไฟล์แนบแล้ว', 'info');
+                }
+            };
+
+            const handleExportBackup = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(jobs, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `vinylshop_backup_${new Date().toISOString().slice(0,10)}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                showToast('สำรองข้อมูลสำเร็จ');
+            };
+
+            const handleImportBackup = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const importedJobs = JSON.parse(event.target.result);
+                        if (Array.isArray(importedJobs)) {
+                            setJobs(importedJobs);
+                            for (const item of importedJobs) {
+                                if (item.id) await saveJobToCloud(item);
+                            }
+                            showToast(`นำเข้าสำเร็จ ${importedJobs.length} รายการ`);
+                        }
+                    } catch (err) {
+                        showToast('ไฟล์สำรองข้อมูลไม่ถูกต้อง', 'info');
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = null;
+            };
+
+            const copyTextToClipboard = (text) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('คัดลอกลิงก์แล้ว');
+            };
+
+            const canEditJob = (statusId, roleId) => {
+                if (roleId === 'graphic') return [1, 2, 6, 7, 8, 9].includes(statusId);
+                if (roleId === 'clerk') return [1, 2, 6, 7, 8].includes(statusId);
+                if (roleId === 'production') return [3, 4, 5, 6].includes(statusId);
+                return true;
+            };
+
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 flex items-center justify-center p-4">
+                        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+                            <div className="bg-emerald-600 p-8 text-center text-white relative">
+                                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                    <i className="fas fa-scroll text-3xl"></i>
+                                </div>
+                                <h1 className="text-2xl font-bold">VinylShop Pro</h1>
+                                <p className="text-emerald-100 text-sm mt-1">ระบบบริหารจัดการคิวงานร้านป้ายไวนิลครบวงจร</p>
+                                <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-700/60 text-emerald-100">
+                                    <span className={`w-2 h-2 rounded-full mr-2 ${isCloudConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></span>
+                                    {isLoadingCloud ? 'กำลังเชื่อมต่อฐานข้อมูล...' : isCloudConnected ? 'Cloud Online (Google Sheets)' : 'Local Offline Mode'}
+                                </div>
+                            </div>
+                            <div className="p-8">
+                                <form onSubmit={handleLogin} className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อพนักงาน</label>
+                                        <div className="relative">
+                                            <i className="fas fa-user absolute left-3.5 top-3.5 text-gray-400"></i>
+                                            <input type="text" name="name" required placeholder="เช่น แอน, บอย, ช่างเอก" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">เลือกฝ่าย / หน้าที่</label>
+                                        <div className="relative">
+                                            <i className="fas fa-id-badge absolute left-3.5 top-3.5 text-gray-400"></i>
+                                            <select name="role" required className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                                <option value="">-- เลือกตำแหน่งงาน --</option>
+                                                {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2">
+                                        <span>เข้าสู่ระบบจัดการงาน</span>
+                                        <i className="fas fa-arrow-right text-sm"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentRoleObj = ROLES.find(r => r.id === user.role);
+            const visibleStatuses = user.role === 'graphic' ? STATUSES : STATUSES.filter(s => s.id !== 9);
+            const statusCounts = visibleStatuses.map(status => ({
+                ...status,
+                count: jobs.filter(job => job.status === status.id).length
+            }));
+
+            const filteredJobs = jobs.filter(job => {
+                const matchStatus = statusFilter === null ? job.status !== 8 : job.status === statusFilter;
+                const query = searchQuery.toLowerCase().trim();
+                const matchSearch = !query || 
+                    (job.customer && job.customer.toLowerCase().includes(query)) || 
+                    (job.details && job.details.toLowerCase().includes(query)) ||
+                    (job.id && job.id.toLowerCase().includes(query)) ||
+                    (job.phone && job.phone.toLowerCase().includes(query)) ||
+                    (job.createdBy && job.createdBy.toLowerCase().includes(query));
+                return matchStatus && matchSearch;
+            });
+
+            return (
+                <div className="min-h-screen bg-slate-50 pb-16">
+                    {toast && (
+                        <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 animate-bounce no-print">
+                            <i className={`fas ${toast.type === 'info' ? 'fa-info-circle text-blue-400' : 'fa-check-circle text-emerald-400'}`}></i>
+                            <span className="text-sm font-medium">{toast.message}</span>
+                        </div>
+                    )}
+
+                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20 no-print">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+                            <div className="flex items-center space-x-3">
+                                <div className="bg-emerald-600 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm">
+                                    <i className="fas fa-print text-lg"></i>
+                                </div>
+                                <div>
+                                    <div className="flex items-center space-x-2">
+                                        <span className="font-bold text-lg text-gray-900">VinylShop Pro</span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${isCloudConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isCloudConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
+                                            {isCloudConnected ? 'Cloud Online' : 'Local Offline'}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">ระบบติดตามคิวงานป้ายไวนิล</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                                <a 
+                                    href={shopDriveUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="เปิดโฟลเดอร์ Google Drive ของร้าน"
+                                    className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-200 font-semibold transition flex items-center"
+                                >
+                                    <i className="fab fa-google-drive mr-1.5 text-sm"></i>
+                                    <span className="hidden sm:inline">ไดรฟ์รวมไฟล์ร้าน</span>
+                                    <span className="sm:hidden">Drive</span>
+                                </a>
+
+                                <button 
+                                    onClick={() => { setSharingTab('github'); setIsSharingModalOpen(true); }}
+                                    title="การตั้งค่าและการแชร์"
+                                    className="text-xs bg-gray-900 text-white hover:bg-gray-800 px-3 py-1.5 rounded-xl font-semibold transition flex items-center"
+                                >
+                                    <i className="fab fa-github mr-1.5 text-sm"></i>
+                                    <span className="hidden sm:inline">GitHub Pages / การแชร์</span>
+                                    <span className="sm:hidden">แชร์</span>
+                                </button>
+
+                                <div className="hidden xl:flex items-center space-x-1">
+                                    <button onClick={handleExportBackup} title="สำรองข้อมูล" className="text-xs text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg border transition flex items-center">
+                                        <i className="fas fa-download mr-1.5"></i> สำรองข้อมูล
+                                    </button>
+                                    <button onClick={() => importInputRef.current?.click()} title="กู้คืนข้อมูล" className="text-xs text-gray-600 hover:text-blue-700 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg border transition flex items-center">
+                                        <i className="fas fa-upload mr-1.5"></i> กู้คืน
+                                    </button>
+                                    <input ref={importInputRef} type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+                                </div>
+
+                                <div className="flex items-center bg-gray-100 px-3 py-1.5 rounded-xl border border-gray-200">
+                                    <i className={`fas ${currentRoleObj?.icon} text-emerald-600 mr-2 text-sm`}></i>
+                                    <div className="text-xs">
+                                        <span className="font-semibold text-gray-800 mr-1">{user.name}</span>
+                                        <select 
+                                            value={user.role} 
+                                            onChange={(e) => {
+                                                setUser({ ...user, role: e.target.value });
+                                                if (e.target.value !== 'graphic' && statusFilter === 9) setStatusFilter(null);
+                                                showToast(`สลับมุมมองเป็น: ${ROLES.find(r => r.id === e.target.value)?.label.split(' ')[0]}`, 'info');
+                                            }}
+                                            className="bg-transparent font-medium text-emerald-700 outline-none cursor-pointer"
+                                        >
+                                            {ROLES.map(r => <option key={r.id} value={r.id}>{r.label.split(' ')[0]}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => setUser(null)} title="ออกจากระบบ" className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition">
+                                    <i className="fas fa-right-from-bracket text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 no-print">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">กระดานติดตามสถานะงาน</h2>
+                                <p className="text-sm text-gray-500">คลิกที่การ์ดสถานะด้านล่างเพื่อกรองดูเฉพาะงานที่ต้องการ</p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <div className="relative">
+                                    <i className="fas fa-search absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+                                    <input 
+                                        type="text" 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร..." 
+                                        className="pl-9 pr-8 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-64"
+                                    />
+                                    {searchQuery && (
+                                        <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600">
+                                            <i className="fas fa-times-circle"></i>
+                                        </button>
+                                    )}
+                                </div>
+                                <button onClick={() => setIsAddingJob(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center">
+                                    <i className="fas fa-plus mr-2"></i> รับงานใหม่
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className={`grid grid-cols-2 sm:grid-cols-4 ${user.role === 'graphic' ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-3 mb-8`}>
+                            {statusCounts.map(status => {
+                                const isSelected = statusFilter === status.id;
+                                return (
+                                    <div 
+                                        key={status.id} 
+                                        onClick={() => setStatusFilter(prev => prev === status.id ? null : status.id)}
+                                        className={`bg-white rounded-2xl border p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
+                                            isSelected ? 'ring-2 ring-emerald-600 border-emerald-600 bg-emerald-50/40 shadow-md -translate-y-0.5' : 'border-gray-200 hover:border-emerald-300'
+                                        }`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 ${status.color.split(' ')[0]} ${status.color.split(' ')[1]}`}>
+                                            <i className={`fas ${status.icon} text-base`}></i>
+                                        </div>
+                                        <span className="text-2xl font-bold text-gray-900 leading-tight">{status.count}</span>
+                                        <span className="text-xs font-medium text-gray-600 mt-1 line-clamp-1">{status.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/70 flex justify-between items-center">
+                                <h3 className="text-base font-bold text-gray-800">
+                                    <i className="fas fa-list-check mr-2 text-emerald-600"></i>
+                                    {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
+                                </h3>
+                                {statusFilter !== null && (
+                                    <button onClick={() => setStatusFilter(null)} className="text-xs font-medium text-emerald-600 hover:underline">
+                                        แสดงทั้งหมด
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[900px]">
+                                    <thead>
+                                        <tr className="bg-white border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
+                                            <th className="px-6 py-3.5 font-semibold w-1/4">รหัส / ลูกค้า</th>
+                                            <th className="px-6 py-3.5 font-semibold w-2/5">สเปกงาน & ไฟล์</th>
+                                            <th className="px-6 py-3.5 font-semibold">สถานะ</th>
+                                            <th className="px-6 py-3.5 font-semibold text-right">จัดการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 text-sm">
+                                        {filteredJobs.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="4" className="px-6 py-16 text-center text-gray-400">
+                                                    <i className="fas fa-folder-open text-4xl mb-3 block text-gray-300"></i>
+                                                    <p className="font-medium text-gray-600">ไม่พบรายการงาน</p>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredJobs.map(job => {
+                                                const currentStatus = STATUSES.find(s => s.id === job.status) || STATUSES[0];
+                                                const hasPermission = canEditJob(job.status, user.role);
+                                                const isEditableStatus = [1, 2, 9].includes(job.status);
+                                                const canAttachOrDeleteFile = isEditableStatus && hasPermission && user.role !== 'production';
+
+                                                return (
+                                                    <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors ${job.urgent ? 'bg-rose-50/20' : ''}`}>
+                                                        <td className="px-6 py-4 align-top">
+                                                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                                <span className="text-xs font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded border">{job.id}</span>
+                                                                {job.urgent && (
+                                                                    <span className="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                                        <i className="fas fa-fire mr-1"></i> ด่วน
+                                                                    </span>
+                                                                )}
+                                                                {job.dueDate && (
+                                                                    <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium px-2 py-0.5 rounded-full">
+                                                                        นัด: {job.dueDate}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="font-bold text-gray-900 text-base">{job.customer}</div>
+                                                            {job.phone && <div className="text-xs text-emerald-700 font-medium mt-0.5"><i className="fas fa-phone mr-1"></i>{job.phone}</div>}
+                                                            <div className="text-xs text-gray-400 mt-1">{job.date} • รับโดย: {job.createdBy}</div>
+                                                        </td>
+
+                                                        <td className="px-6 py-4 align-top text-gray-700">
+                                                            <div className="mb-2 whitespace-pre-line leading-relaxed">{job.details}</div>
+                                                            {job.price && <div className="text-xs font-semibold text-gray-600 mb-2">ราคา/มัดจำ: <span className="text-emerald-700">{job.price} บาท</span></div>}
+
+                                                            {job.fileLink && (
+                                                                <div className="mb-2 flex items-center gap-1.5 text-xs bg-blue-50 text-blue-800 px-3 py-1.5 rounded-xl border border-blue-200 w-fit max-w-full">
+                                                                    <i className="fab fa-google-drive text-blue-600"></i>
+                                                                    <a href={job.fileLink} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline truncate max-w-[200px]">
+                                                                        {job.fileLink === DEFAULT_SHOP_DRIVE_URL ? 'โฟลเดอร์ Google Drive ร้าน' : job.fileLink}
+                                                                    </a>
+                                                                    <button onClick={() => copyTextToClipboard(job.fileLink)} className="text-blue-600 font-semibold px-1.5 bg-white rounded border text-[11px]">คัดลอก</button>
+                                                                </div>
+                                                            )}
+
+                                                            {job.file ? (
+                                                                <div className="inline-flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                                                                    <i className="fas fa-file-arrow-down text-emerald-600"></i>
+                                                                    <a href={job.file.url} download={job.file.name} target="_blank" rel="noreferrer" className="text-emerald-800 hover:underline font-medium text-xs truncate max-w-[180px]">
+                                                                        {job.file.name}
+                                                                    </a>
+                                                                    {canAttachOrDeleteFile && (
+                                                                        <button onClick={() => handleRemoveRowFile(job.id)} className="text-gray-400 hover:text-red-600 ml-2 pl-2 border-l border-emerald-200">
+                                                                            <i className="fas fa-trash-can text-xs"></i>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                canAttachOrDeleteFile && (
+                                                                    <div>
+                                                                        <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-gray-300 text-gray-600 hover:border-emerald-500 rounded-xl text-xs cursor-pointer transition">
+                                                                            <i className="fas fa-cloud-arrow-up mr-1.5"></i> แนบไฟล์ (เฉพาะเครื่อง)
+                                                                            <input type="file" className="hidden" onChange={(e) => handleRowFileChange(job.id, e)} />
+                                                                        </label>
+                                                                        {rowFileErrors[job.id] && <p className="text-red-500 text-xs mt-1">{rowFileErrors[job.id]}</p>}
+                                                                    </div>
+                                                                )
+                                                            )}
+                                                        </td>
+
+                                                        <td className="px-6 py-4 align-top">
+                                                            <select 
+                                                                value={job.status} 
+                                                                onChange={(e) => handleChangeStatus(job.id, parseInt(e.target.value))} 
+                                                                disabled={!hasPermission}
+                                                                className={`text-xs font-semibold px-3.5 py-2 rounded-xl border outline-none ${currentStatus.color} ${!hasPermission ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                            >
+                                                                {STATUSES.filter(s => s.id !== 9 || user.role === 'graphic' || job.status === 9).map(s => (
+                                                                    <option key={s.id} value={s.id} className="bg-white text-gray-800 font-normal">{s.label}</option>
+                                                                ))}
+                                                            </select>
+                                                        </td>
+
+                                                        <td className="px-6 py-4 align-top text-right">
+                                                            <div className="flex items-center justify-end space-x-1">
+                                                                <button onClick={() => setPrintingJob(job)} title="พิมพ์ใบสั่งงาน" className="text-gray-400 hover:text-blue-600 p-2 rounded-lg">
+                                                                    <i className="fas fa-print"></i>
+                                                                </button>
+                                                                {hasPermission && (
+                                                                    confirmDeleteId === job.id ? (
+                                                                        <div className="inline-flex items-center space-x-1 bg-red-50 p-1 rounded-xl">
+                                                                            <button onClick={() => handleDeleteJob(job.id)} className="bg-red-600 text-white text-xs px-2 py-1 rounded">ลบ</button>
+                                                                            <button onClick={() => setConfirmDeleteId(null)} className="text-gray-600 text-xs px-2 py-1">ยกเลิก</button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <>
+                                                                            <button onClick={() => handleStartEdit(job)} title="แก้ไข" className="text-gray-400 hover:text-emerald-600 p-2 rounded-lg"><i className="fas fa-pen-to-square"></i></button>
+                                                                            <button onClick={() => setConfirmDeleteId(job.id)} title="ลบงาน" className="text-gray-400 hover:text-red-600 p-2 rounded-lg"><i className="fas fa-trash"></i></button>
+                                                                        </>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* Modal เพิ่ม/แก้ไขงาน */}
+                    {isAddingJob && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 my-8">
+                                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                                    <h3 className="font-bold text-lg text-gray-900">
+                                        {editingJob ? `แก้ไขงาน (${editingJob.id})` : 'เปิดใบงานใหม่'}
+                                    </h3>
+                                    <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 w-8 h-8 rounded-full flex items-center justify-center">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <form onSubmit={handleSaveJob} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">ชื่องาน / ลูกค้า <span className="text-red-500">*</span></label>
+                                            <input type="text" required value={newJob.customer} onChange={e => setNewJob({...newJob, customer: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="ร้านกาแฟสด" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรติดต่อ</label>
+                                            <input type="text" value={newJob.phone} onChange={e => setNewJob({...newJob, phone: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="081-xxx-xxxx" />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">วันนัดรับงาน</label>
+                                            <input type="text" value={newJob.dueDate} onChange={e => setNewJob({...newJob, dueDate: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="พรุ่งนี้ 16:00 น." />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">ราคา/มัดจำ (บาท)</label>
+                                            <input type="text" value={newJob.price} onChange={e => setNewJob({...newJob, price: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="650" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียดสเปกงาน <span className="text-red-500">*</span></label>
+                                        <textarea required rows="3" value={newJob.details} onChange={e => setNewJob({...newJob, details: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none resize-none text-sm" placeholder="ขนาด, วัสดุ, ตาไก่..."></textarea>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <input type="checkbox" id="urgentCheck" checked={newJob.urgent} onChange={e => setNewJob({...newJob, urgent: e.target.checked})} className="w-4 h-4 text-rose-600 rounded" />
+                                        <label htmlFor="urgentCheck" className="text-sm font-medium text-gray-700 cursor-pointer">งานด่วนพิเศษ</label>
+                                    </div>
+                                    {user.role !== 'production' && (
+                                        <div className="space-y-3 pt-2 border-t">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">ลิงก์ Google Drive / โฟลเดอร์ร้าน</label>
+                                                <input type="text" value={newJob.fileLink} onChange={e => setNewJob({...newJob, fileLink: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-xs" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">แนบไฟล์ตัวอย่าง (จะไม่ถูกซิงค์ขึ้น Cloud)</label>
+                                                <input type="file" onChange={e => setNewJob({...newJob, file: e.target.files[0]})} className="w-full text-xs border p-1 rounded-xl" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="pt-4 flex space-x-3">
+                                        <button type="button" onClick={resetForm} disabled={isSaving} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-sm font-medium disabled:opacity-50">ยกเลิก</button>
+                                        <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium shadow-md disabled:opacity-70 flex items-center justify-center">
+                                            {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...</> : 'บันทึก'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal พิมพ์ใบงาน */}
+                    {printingJob && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border">
+                                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 no-print">
+                                    <h3 className="font-bold text-gray-800">ใบสั่งงาน (Job Order)</h3>
+                                    <button onClick={() => setPrintingJob(null)} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-xl"></i></button>
+                                </div>
+                                <div id="printable-area" className="p-8 space-y-4 bg-white text-gray-900">
+                                    <div className="flex justify-between items-center border-b pb-4">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-emerald-700">VinylShop Pro</h2>
+                                            <p className="text-xs text-gray-500">ใบสั่งผลิตและควบคุมงานป้ายไวนิล</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-mono font-bold bg-gray-100 px-3 py-1 rounded">{printingJob.id}</span>
+                                            {printingJob.urgent && <span className="block text-xs font-bold text-rose-600 mt-1">*** งานด่วนพิเศษ ***</span>}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div><strong>ลูกค้า:</strong> {printingJob.customer}</div>
+                                        <div><strong>เบอร์โทร:</strong> {printingJob.phone || '-'}</div>
+                                        <div><strong>กำหนดนัดรับ:</strong> {printingJob.dueDate || '-'}</div>
+                                        <div><strong>ราคา/มัดจำ:</strong> {printingJob.price ? `${printingJob.price} บาท` : '-'}</div>
+                                    </div>
+                                    <div className="border-t border-b py-3 text-sm">
+                                        <strong className="block mb-1 text-gray-700">สเปก / รายละเอียดงาน:</strong>
+                                        <div className="whitespace-pre-line bg-slate-50 p-3 rounded-xl border">{printingJob.details}</div>
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex justify-between pt-2">
+                                        <span>ออกใบงานโดย: {printingJob.createdBy} ({printingJob.date})</span>
+                                        <span>ลิงก์ไฟล์: {printingJob.fileLink ? 'มีไดรฟ์กลาง' : '-'}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs">
+                                        <div className="border-t pt-2 border-gray-400">ผู้รับงาน / ออกแบบ</div>
+                                        <div className="border-t pt-2 border-gray-400">ช่างผู้ผลิต / ตรวจสอบ</div>
+                                    </div>
+                                </div>
+                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end space-x-2 no-print">
+                                    <button onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-sm font-medium">
+                                        <i className="fas fa-print mr-2"></i> พิมพ์ใบงาน
+                                    </button>
+                                    <button onClick={() => setPrintingJob(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium">
+                                        ปิด
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal ตั้งค่า Cloud / GitHub Pages */}
+                    {isSharingModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border my-8">
+                                <div className="px-6 py-4 bg-gray-900 text-white flex justify-between items-center">
+                                    <h3 className="font-bold text-lg flex items-center">
+                                        <i className="fab fa-github mr-2 text-xl"></i> การตั้งค่าและการแชร์
+                                    </h3>
+                                    <button onClick={() => setIsSharingModalOpen(false)} className="text-white/80 hover:text-white"><i className="fas fa-times text-xl"></i></button>
+                                </div>
+
+                                <div className="flex border-b bg-gray-50 px-6 pt-3 space-x-2">
+                                    <button onClick={() => setSharingTab('github')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'github' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
+                                        1. วิธีแชร์ให้เพื่อนใช้
+                                    </button>
+                                    <button onClick={() => setSharingTab('drive')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'drive' ? 'bg-white text-blue-700' : 'text-gray-500'}`}>
+                                        2. Google Drive ร้าน
+                                    </button>
+                                    <button onClick={() => setSharingTab('cloud')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'cloud' ? 'bg-white text-emerald-700' : 'text-gray-500'}`}>
+                                        3. ตั้งค่า Google Sheets
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                    {sharingTab === 'github' && (
+                                        <div className="space-y-4">
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 text-sm">ดาวน์โหลดไฟล์ <code className="bg-white px-1 rounded text-emerald-700">index.html</code></h4>
+                                                    <p className="text-xs text-gray-600 mt-0.5">ไฟล์หน้าแรกของ GitHub Pages ต้องชื่อ index.html เท่านั้น</p>
+                                                </div>
+                                                <button onClick={() => handleDownloadHtmlApp('index.html')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center shrink-0">
+                                                    <i className="fas fa-download mr-2"></i> ดาวน์โหลดไฟล์
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">1. สร้าง Repository ใหม่</div>
+                                                    <p className="text-gray-600">ไปที่ <a href="https://github.com/new" target="_blank" rel="noreferrer" className="text-blue-600 underline">github.com/new</a> ตั้งชื่อ เช่น <code className="bg-gray-100 px-1">vinyl-shop</code> เลือก Public แล้วกด Create</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">2. อัปโหลดไฟล์</div>
+                                                    <p className="text-gray-600">คลิก "uploading an existing file" ลากไฟล์ <code className="bg-gray-100 px-1">index.html</code> ใส่แล้วกด Commit changes</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">3. เปิด Pages</div>
+                                                    <p className="text-gray-600">ไปที่ Settings &rarr; Pages &rarr; ตรง Branch เลือก <code className="bg-gray-100 px-1">main</code> แล้วกด Save</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">4. พร้อมใช้งาน</div>
+                                                    <p className="text-gray-600">รอ 1 นาที จะได้ลิงก์ร้านค้าของคุณไปเปิดในทุกเครื่องได้ทันที</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {sharingTab === 'drive' && (
+                                        <div className="space-y-3">
+                                            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                                                <h4 className="font-bold text-blue-900 text-sm mb-1"><i className="fab fa-google-drive mr-2 text-blue-600"></i> Google Drive ของร้าน</h4>
+                                                <p className="text-xs text-blue-800 mb-3">ลิงก์โฟลเดอร์ร้านที่คุณบันทึกไว้ถูกฝังในระบบแล้ว พนักงานทุกคนสามารถกดเปิดเพื่อรับส่งไฟล์ใหญ่ได้</p>
+                                                <input type="text" value={shopDriveUrl} onChange={e => setShopDriveUrl(e.target.value)} className="w-full px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl mb-2 font-mono" />
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => copyTextToClipboard(shopDriveUrl)} className="px-3 py-1.5 bg-white text-blue-700 border rounded-xl text-xs font-semibold">คัดลอกลิงก์</button>
+                                                    <a href={shopDriveUrl} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center">เปิดไดรฟ์</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {sharingTab === 'cloud' && (
+                                        <div className="space-y-3">
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-3">
+                                                <h4 className="font-bold text-emerald-900 text-sm mb-2"><i className="fas fa-table mr-2 text-emerald-600"></i> เชื่อมต่อ Google Sheets (ฟรี)</h4>
+                                                <p className="text-xs text-emerald-800 mb-2">เพื่อให้พนักงานทุกคนเห็นคิวงานตรงกันแบบ Real-time</p>
+                                                <ol className="text-xs text-emerald-800 space-y-1.5 list-decimal pl-4">
+                                                    <li>เปิดหน้าเว็บ <a href="https://sheets.new" target="_blank" className="underline text-blue-600">สร้าง Google Sheets ใหม่</a> ตั้งชื่อชีตว่า <strong>Jobs</strong></li>
+                                                    <li>ไปที่เมนู <strong>ส่วนขยาย (Extensions)</strong> &gt; <strong>Apps Script</strong></li>
+                                                    <li>ก๊อปปี้โค้ด <code className="bg-emerald-100 px-1 rounded">Code.gs</code> ที่เตรียมไว้ วางแทนที่โค้ดเดิมทั้งหมด แล้วกดบันทึก</li>
+                                                    <li>กดปุ่มสีน้ำเงิน <strong>Deploy (การทำให้ใช้งานได้)</strong> มุมขวาบน &gt; <strong>New Deployment</strong></li>
+                                                    <li>เลือกประเภท <strong>Web app</strong>, และตรง Who has access ให้เลือก <strong>Anyone (ทุกคน)</strong></li>
+                                                    <li>กด Deploy นำ URL ที่ลงท้ายด้วย <code>/exec</code> มาวางด้านล่างนี้</li>
+                                                </ol>
+                                            </div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Web App URL จาก Apps Script:</label>
+                                            <textarea rows="2" value={gasUrlInput} onChange={e => setGasUrlInput(e.target.value)} placeholder='https://script.google.com/macros/s/..../exec' className="w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 rounded-xl border"></textarea>
+                                            <div className="flex justify-end">
+                                                <button onClick={handleSaveGasUrl} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700">บันทึกและเชื่อมต่อ Sheets</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                                    <span className="text-xs text-gray-500">สถานะ: <strong className={isCloudConnected ? "text-emerald-600" : "text-amber-600"}>{isCloudConnected ? "Cloud Online (Google Sheets)" : "Local Mode"}</strong></span>
+                                    <button onClick={() => setIsSharingModalOpen(false)} className="px-5 py-2 bg-gray-800 text-white rounded-xl text-sm font-medium">ปิด</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
+    </script>
+</body>
+</html>
