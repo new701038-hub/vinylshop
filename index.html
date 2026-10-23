@@ -54,11 +54,8 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, Component } = React;
 
-        // ลิงก์ Google Drive กลางของร้านป้ายไวนิล
+        // ลิงก์ Google Drive และ Google Apps Script ค่าเริ่มต้นของร้าน
         const DEFAULT_SHOP_DRIVE_URL = 'https://drive.google.com/drive/folders/1tj0L-I8Ba59tHRmJwsvrMZMT21TmNhC1?usp=sharing';
-        const DRIVE_FOLDER_ID = '1tj0L-I8Ba59tHRmJwsvrMZMT21TmNhC1';
-
-        // ลิงก์ Google Apps Script (Web App URL) หลักของร้าน (เชื่อมต่ออัตโนมัติทุกเครื่อง)
         const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvInMBqFNSbh4rg4BL5tod-CaiCB_oZV-k2blqrpJx4SvQekFXOTXOej2BF9m1ZEiZ/exec';
 
         const STATUSES = [
@@ -83,96 +80,6 @@
             { id: 'JOB-101', customer: 'ร้านกาแฟสด Me Coffee', phone: '081-234-5678', dueDate: 'พรุ่งนี้ 15:00 น.', price: '450', details: 'ไวนิลหน้าเดียว 3x1.5 เมตร พับขอบตอกตาไก่ 4 มุม ขอโทนสีมินิมอล', status: 1, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), file: null, fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: true, createdAt: Date.now() - 40000 },
             { id: 'JOB-102', customer: 'มินิมาร์ท 24 ชม. สาขา 2', phone: '089-999-8877', dueDate: '25 ต.ค.', price: '1,200', details: 'ป้ายฟิวเจอร์บอร์ด 60x80 ซม. จำนวน 5 แผ่น (โปรโมชั่นหน้าร้าน)', status: 2, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), file: null, fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false, createdAt: Date.now() - 30000 },
         ];
-
-        // โค้ด Google Apps Script ฉบับอัปเกรด (รองรับทั้งเก็บไฟล์ลง Google Drive อัตโนมัติ และจำข้อมูลไฟล์แนบ)
-        const GAS_CODE_TEMPLATE = `const SHEET_NAME = 'Jobs';
-const DRIVE_FOLDER_ID = '${DRIVE_FOLDER_ID}'; // โฟลเดอร์ Google Drive ของร้าน
-
-function doGet(e) {
-  const sheet = getOrCreateSheet();
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) {
-    return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
-  }
-  const headers = data[0];
-  const jobs = data.slice(1).map(row => {
-    let obj = {};
-    headers.forEach((h, i) => {
-      if (h === 'file' && row[i]) {
-        try { obj[h] = JSON.parse(row[i]); } catch(err) { obj[h] = null; }
-      } else {
-        obj[h] = row[i];
-      }
-    });
-    return obj;
-  });
-  return ContentService.createTextOutput(JSON.stringify(jobs)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  const payload = JSON.parse(e.postData.contents);
-  const action = payload.action;
-  const sheet = getOrCreateSheet();
-
-  // กรณีอัปโหลดไฟล์เข้า Google Drive อัตโนมัติ
-  if (action === 'uploadDrive') {
-    try {
-      const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-      const blob = Utilities.newBlob(Utilities.base64Decode(payload.base64), payload.mimeType, payload.fileName);
-      const file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'success',
-        fileUrl: file.getUrl(),
-        downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
-        fileName: file.getName()
-      })).setMimeType(ContentService.MimeType.JSON);
-    } catch (err) {
-      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  const job = payload.job;
-  const headers = ['id', 'customer', 'phone', 'dueDate', 'price', 'details', 'status', 'createdBy', 'date', 'fileLink', 'urgent', 'createdAt', 'file'];
-  const data = sheet.getDataRange().getValues();
-
-  if (action === 'update') {
-    let rowIndex = -1;
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === job.id) { rowIndex = i + 1; break; }
-    }
-    const rowValues = headers.map(h => {
-      if (h === 'file') return job.file ? JSON.stringify(job.file) : '';
-      return job[h] !== undefined ? job[h] : '';
-    });
-    if (rowIndex > 0) {
-      sheet.getRange(rowIndex, 1, 1, headers.length).setValues([rowValues]);
-    } else {
-      sheet.appendRow(rowValues);
-    }
-  } else if (action === 'delete') {
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === job.id) { sheet.deleteRow(i + 1); break; }
-    }
-  }
-  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function getOrCreateSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  const headers = ['id', 'customer', 'phone', 'dueDate', 'price', 'details', 'status', 'createdBy', 'date', 'fileLink', 'urgent', 'createdAt', 'file'];
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(headers);
-  } else {
-    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-    if (firstRow[12] !== 'file') {
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    }
-  }
-  return sheet;
-}`;
 
         class ErrorBoundary extends Component {
             constructor(props) {
@@ -211,13 +118,9 @@ function getOrCreateSheet() {
             const [isAddingJob, setIsAddingJob] = useState(false);
             const [editingJob, setEditingJob] = useState(null);
             const [isSaving, setIsSaving] = useState(false);
-            const [uploadingJobId, setUploadingJobId] = useState(null);
-            const [uploadProgress, setUploadProgress] = useState(0);
-            const [uploadStatusText, setUploadStatusText] = useState('');
-            const [previewFile, setPreviewFile] = useState(null);
             const [printingJob, setPrintingJob] = useState(null);
             const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
-            const [sharingTab, setSharingTab] = useState('cloud');
+            const [sharingTab, setSharingTab] = useState('github');
             
             const [gasUrlInput, setGasUrlInput] = useState(() => {
                 try { return localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL; } catch (e) { return DEFAULT_GAS_URL; }
@@ -236,32 +139,10 @@ function getOrCreateSheet() {
 
             const showToast = (message, type = 'success') => {
                 setToast({ message, type });
-                setTimeout(() => setToast(null), 4000);
+                setTimeout(() => setToast(null), 3000);
             };
 
-            // แปลงขนาดไฟล์ให้อ่านง่าย (MB / GB)
-            const formatFileSize = (bytes) => {
-                if (!bytes) return '';
-                if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
-                if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-                if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB';
-                return bytes + ' B';
-            };
-
-            // แปลงข้อมูลไฟล์จาก Cloud/LocalStorage ให้พร้อมใช้งานเสมอ
-            const parseFileField = (f) => {
-                if (!f) return null;
-                if (typeof f === 'object' && f.url) return f;
-                if (typeof f === 'string') {
-                    try {
-                        const parsed = JSON.parse(f);
-                        if (parsed && parsed.url) return parsed;
-                    } catch (e) {}
-                }
-                return null;
-            };
-
-            // ระบบดึงข้อมูลจาก Google Sheets โดยไม่เขียนทับไฟล์แนบที่มีอยู่
+            // ระบบดึงข้อมูลจาก Google Sheets และจัดเรียงตามลำดับเวลาล่าสุดเสมอ
             useEffect(() => {
                 let intervalId = null;
 
@@ -271,21 +152,13 @@ function getOrCreateSheet() {
                         const fetchedJobs = await response.json();
                         if (Array.isArray(fetchedJobs) && fetchedJobs.length > 0) {
                             fetchedJobs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                            
-                            setJobs(prevJobs => {
-                                return fetchedJobs.map(cloudJob => {
-                                    const localMatch = prevJobs.find(lj => lj.id === cloudJob.id);
-                                    const cloudFile = parseFileField(cloudJob.file);
-                                    return {
-                                        ...cloudJob,
-                                        urgent: cloudJob.urgent === true || cloudJob.urgent === 'true',
-                                        status: parseInt(cloudJob.status) || 1,
-                                        createdAt: parseInt(cloudJob.createdAt) || Date.now(),
-                                        // ถ้าระบบ Cloud ส่งไฟล์มาก็ใช้ของ Cloud ถ้าไม่มีให้รักษาไฟล์ในเครื่องไว้ไม่ให้หาย!
-                                        file: cloudFile || (localMatch ? localMatch.file : null)
-                                    };
-                                });
-                            });
+                            const formattedJobs = fetchedJobs.map(job => ({
+                                ...job,
+                                urgent: job.urgent === true || job.urgent === 'true',
+                                status: parseInt(job.status) || 1,
+                                createdAt: parseInt(job.createdAt) || Date.now()
+                            }));
+                            setJobs(formattedJobs);
                             setIsCloudConnected(true);
                         } else if (Array.isArray(fetchedJobs) && fetchedJobs.length === 0) {
                             setJobs([]);
@@ -300,11 +173,6 @@ function getOrCreateSheet() {
 
                 const savedUrl = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (savedUrl && savedUrl.includes('script.google.com')) {
-                    try {
-                        if (!localStorage.getItem('vinylshop_gas_url')) {
-                            localStorage.setItem('vinylshop_gas_url', savedUrl);
-                        }
-                    } catch (e) {}
                     setIsCloudConnected(true);
                     fetchFromSheets(savedUrl);
                     intervalId = setInterval(() => fetchFromSheets(savedUrl), 10000);
@@ -321,267 +189,18 @@ function getOrCreateSheet() {
                 };
             }, []);
 
-            // เซฟลง LocalStorage สำรองไว้เสมอ
             useEffect(() => {
                 try {
                     localStorage.setItem('vinylshop_local_jobs', JSON.stringify(jobs));
                 } catch (e) {}
             }, [jobs]);
 
-            // บีบอัดรูปภาพอัตโนมัติเพื่อให้เก็บลงช่อง Google Sheets ได้ (ไม่เกิน 45,000 ตัวอักษร) และเพื่อนดาวน์โหลดได้ทุกเครื่อง
-            const compressImageForCloud = (fileObj) => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            let width = img.width;
-                            let height = img.height;
-                            const MAX_DIM = 850;
-                            if (width > height && width > MAX_DIM) {
-                                height = Math.round(height * (MAX_DIM / width));
-                                width = MAX_DIM;
-                            } else if (height > MAX_DIM) {
-                                width = Math.round(width * (MAX_DIM / height));
-                                height = MAX_DIM;
-                            }
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            let quality = 0.7;
-                            let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                            while (dataUrl.length > 42000 && quality > 0.25) {
-                                quality -= 0.15;
-                                dataUrl = canvas.toDataURL('image/jpeg', quality);
-                            }
-                            resolve({
-                                name: fileObj.name,
-                                url: dataUrl,
-                                size: fileObj.size,
-                                isCloudReady: true,
-                                type: 'image'
-                            });
-                        };
-                        img.onerror = () => resolve(null);
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(fileObj);
-                });
-            };
-
-            // อัปโหลดไฟล์เข้า Google Drive ร้านผ่าน Apps Script (สำหรับไฟล์ใหญ่ หรือ PDF/AI/PSD)
-            const uploadFileToGoogleDrive = async (fileObj) => {
-                const url = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
-                if (!url) return null;
-
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = async (e) => {
-                        try {
-                            const base64Content = e.target.result.split(',')[1];
-                            const res = await fetch(url, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                body: JSON.stringify({
-                                    action: 'uploadDrive',
-                                    fileName: fileObj.name,
-                                    mimeType: fileObj.type || 'application/octet-stream',
-                                    base64: base64Content
-                                })
-                            });
-                            const data = await res.json();
-                            if (data && data.status === 'success') {
-                                resolve({
-                                    name: fileObj.name,
-                                    url: data.downloadUrl || data.fileUrl,
-                                    viewUrl: data.fileUrl,
-                                    size: fileObj.size,
-                                    isCloudReady: true,
-                                    type: 'drive'
-                                });
-                            } else {
-                                resolve(null);
-                            }
-                        } catch (err) {
-                            console.error("Drive upload failed:", err);
-                            resolve(null);
-                        }
-                    };
-                    reader.onerror = () => resolve(null);
-                    reader.readAsDataURL(fileObj);
-                });
-            };
-
-            // ระบบอัปโหลดไฟล์ขนาดใหญ่พิเศษ (100MB - 10GB) ตรงขึ้น Cloud Server พร้อมเปอร์เซ็นต์ความคืบหน้า
-            const uploadLargeFileDirect = (fileObj, onProgress) => {
-                return new Promise(async (resolve) => {
-                    // Server 1: Gofile Cloud API (รองรับไฟล์ขนาดไม่จำกัด / 100MB - 10GB+ ฟรี)
-                    try {
-                        if (onProgress) onProgress(2, 'กำลังเตรียมเซิร์ฟเวอร์สำหรับไฟล์ขนาดใหญ่...');
-                        let uploadUrl = 'https://upload.gofile.io/uploadfile';
-                        try {
-                            const srvRes = await fetch('https://api.gofile.io/servers');
-                            const srvData = await srvRes.json();
-                            if (srvData && srvData.status === 'ok' && srvData.data?.servers?.length > 0) {
-                                uploadUrl = `https://${srvData.data.servers[0].name}.gofile.io/uploadfile`;
-                            }
-                        } catch (e) {}
-
-                        const gofileResult = await new Promise((resUpload) => {
-                            const xhr = new XMLHttpRequest();
-                            const formData = new FormData();
-                            formData.append('file', fileObj);
-
-                            xhr.upload.onprogress = (event) => {
-                                if (event.lengthComputable && onProgress) {
-                                    const percent = Math.round((event.loaded / event.total) * 100);
-                                    onProgress(percent, `กำลังอัปโหลดไฟล์ใหญ่ (${formatFileSize(event.loaded)} / ${formatFileSize(event.total)}) - ${percent}%`);
-                                }
-                            };
-
-                            xhr.onload = () => {
-                                try {
-                                    const response = JSON.parse(xhr.responseText);
-                                    if (response && response.status === 'ok' && response.data?.downloadPage) {
-                                        resUpload({
-                                            name: fileObj.name,
-                                            url: response.data.downloadPage,
-                                            viewUrl: response.data.downloadPage,
-                                            size: fileObj.size,
-                                            isCloudReady: true,
-                                            type: 'large_cloud'
-                                        });
-                                    } else {
-                                        resUpload(null);
-                                    }
-                                } catch (e) {
-                                    resUpload(null);
-                                }
-                            };
-                            xhr.onerror = () => resUpload(null);
-                            xhr.open('POST', uploadUrl, true);
-                            xhr.send(formData);
-                        });
-
-                        if (gofileResult) {
-                            return resolve(gofileResult);
-                        }
-                    } catch (err) {
-                        console.error('Primary large file cloud error:', err);
-                    }
-
-                    // Server 2 (สำรอง): Litterbox Direct Link (รองรับสูงสุด 1GB และกดลิงก์โหลดไฟล์ตรงได้ทันที)
-                    if (fileObj.size <= 1024 * 1024 * 1024) {
-                        try {
-                            if (onProgress) onProgress(5, 'กำลังอัปโหลดผ่านเซิร์ฟเวอร์สำรองความเร็วสูง...');
-                            const litterResult = await new Promise((resUpload) => {
-                                const xhr = new XMLHttpRequest();
-                                const formData = new FormData();
-                                formData.append('reqtype', 'fileupload');
-                                formData.append('time', '72h');
-                                formData.append('fileToUpload', fileObj);
-
-                                xhr.upload.onprogress = (event) => {
-                                    if (event.lengthComputable && onProgress) {
-                                        const percent = Math.round((event.loaded / event.total) * 100);
-                                        onProgress(percent, `กำลังอัปโหลดไฟล์ตรง (${percent}%)`);
-                                    }
-                                };
-
-                                xhr.onload = () => {
-                                    if (xhr.status === 200 && xhr.responseText && xhr.responseText.startsWith('http')) {
-                                        const directUrl = xhr.responseText.trim();
-                                        resUpload({
-                                            name: fileObj.name,
-                                            url: directUrl,
-                                            viewUrl: directUrl,
-                                            size: fileObj.size,
-                                            isCloudReady: true,
-                                            type: 'direct_download'
-                                        });
-                                    } else {
-                                        resUpload(null);
-                                    }
-                                };
-                                xhr.onerror = () => resUpload(null);
-                                xhr.open('POST', 'https://litterbox.catbox.moe/resources/internals/api.php', true);
-                                xhr.send(formData);
-                            });
-
-                            if (litterResult) {
-                                return resolve(litterResult);
-                            }
-                        } catch (err) {
-                            console.error('Backup large file cloud error:', err);
-                        }
-                    }
-
-                    resolve(null);
-                });
-            };
-
-            // จัดการไฟล์แนบทุกขนาด (ตั้งแต่รูปเล็กไปจนถึงไฟล์งานพิมพ์ 100MB - 10GB)
-            const processFileObject = async (fileObj, onProgress) => {
-                if (!fileObj) return null;
-                if (!(fileObj instanceof File)) return fileObj;
-
-                const gasUrl = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
-
-                // 1. ถ้าเป็นไฟล์รูปภาพขนาดทั่วไป (< 15MB) ให้ทำทั้งย่อเก็บใน Sheets (ดูพรีวิวได้ทันที) และอัปโหลดตัวจริง
-                if (fileObj.type.startsWith('image/') && fileObj.size <= 15 * 1024 * 1024) {
-                    if (onProgress) onProgress(30, 'กำลังประมวลผลรูปภาพและซิงค์ขึ้น Cloud...');
-                    if (gasUrl && fileObj.size <= 20 * 1024 * 1024) {
-                        const driveRes = await uploadFileToGoogleDrive(fileObj);
-                        if (driveRes) return driveRes;
-                    }
-                    const compressed = await compressImageForCloud(fileObj);
-                    if (compressed) return compressed;
-                }
-
-                // 2. ถ้าไฟล์ขนาดไม่เกิน 20MB ลองส่งเข้า Google Drive ของร้านผ่าน Apps Script ก่อน
-                if (gasUrl && fileObj.size <= 20 * 1024 * 1024) {
-                    if (onProgress) onProgress(40, 'กำลังอัปโหลดไฟล์เข้า Google Drive ร้าน...');
-                    const driveResult = await uploadFileToGoogleDrive(fileObj);
-                    if (driveResult) return driveResult;
-                }
-
-                // 3. สำหรับไฟล์ขนาดใหญ่ (เช่น เกิน 20MB, 100MB, 500MB, 1GB+) ใช้ระบบ Direct Large File Cloud
-                if (onProgress) onProgress(5, 'กำลังเริ่มต้นอัปโหลดไฟล์ขนาดใหญ่...');
-                const largeCloudResult = await uploadLargeFileDirect(fileObj, onProgress);
-                if (largeCloudResult) {
-                    return largeCloudResult;
-                }
-
-                // 4. กรณีออฟไลน์จริงๆ เก็บไว้ในเครื่องชั่วคราว
-                return {
-                    name: fileObj.name,
-                    url: URL.createObjectURL(fileObj),
-                    size: fileObj.size,
-                    isCloudReady: false
-                };
-            };
-
-            // ส่งข้อมูลไปบันทึกที่ Google Sheets (POST) พร้อมส่งไฟล์แนบไปด้วย!
             const saveJobToCloud = async (jobData) => {
                 const url = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (url) {
                     try {
                         const safeJobData = { ...jobData };
-                        // ตรวจสอบขนาดข้อความของไฟล์ ถ้าไม่เกินลิมิต Google Sheets (48,000 ตัวอักษร) ให้ส่งขึ้น Cloud ไปด้วยเลย!
-                        if (safeJobData.file) {
-                            const fileStr = JSON.stringify(safeJobData.file);
-                            if (fileStr.length > 48000) {
-                                // ถ้าเกินลิมิตจริงๆ ค่อยส่งเฉพาะชื่อไฟล์และลิงก์
-                                safeJobData.file = {
-                                    name: safeJobData.file.name,
-                                    url: safeJobData.file.viewUrl || safeJobData.fileLink || DEFAULT_SHOP_DRIVE_URL,
-                                    isExternalLink: true
-                                };
-                            }
-                        }
+                        if (safeJobData.file) safeJobData.file = null; 
                         
                         await fetch(url, {
                             method: 'POST',
@@ -594,7 +213,6 @@ function getOrCreateSheet() {
                 }
             };
 
-            // ลบข้อมูลบน Google Sheets
             const deleteJobFromCloud = async (jobId) => {
                 const url = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (url) {
@@ -608,6 +226,22 @@ function getOrCreateSheet() {
                         console.error('Delete from Sheets error:', err);
                     }
                 }
+            };
+
+            const processFileObject = (fileObj) => {
+                return new Promise((resolve) => {
+                    if (!fileObj) return resolve(null);
+                    if (!(fileObj instanceof File)) return resolve(fileObj);
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        resolve({ name: fileObj.name, url: e.target.result, size: fileObj.size });
+                    };
+                    reader.onerror = () => {
+                        resolve({ name: fileObj.name, url: URL.createObjectURL(fileObj), size: fileObj.size });
+                    };
+                    reader.readAsDataURL(fileObj);
+                });
             };
 
             const handleLogin = (e) => {
@@ -627,13 +261,7 @@ function getOrCreateSheet() {
                 if (!newJob.customer.trim() || !newJob.details.trim()) return;
 
                 setIsSaving(true);
-                setUploadProgress(0);
-                setUploadStatusText('');
-
-                const fileData = await processFileObject(newJob.file, (percent, statusTxt) => {
-                    setUploadProgress(percent);
-                    setUploadStatusText(statusTxt);
-                });
+                const fileData = await processFileObject(newJob.file);
 
                 if (editingJob) {
                     const updatedJob = {
@@ -644,12 +272,12 @@ function getOrCreateSheet() {
                         price: newJob.price || '',
                         details: newJob.details,
                         urgent: newJob.urgent,
-                        fileLink: (fileData && fileData.viewUrl) ? fileData.viewUrl : (newJob.fileLink || ''),
-                        file: fileData !== null ? fileData : editingJob.file
+                        fileLink: newJob.fileLink || '',
+                        file: fileData !== undefined ? fileData : editingJob.file
                     };
-                    setJobs(prev => prev.map(j => j.id === editingJob.id ? updatedJob : j));
-                    await saveJobToCloud(updatedJob);
-                    showToast('อัปเดตข้อมูลและซิงค์ไฟล์เรียบร้อยแล้ว');
+                    setJobs(jobs.map(j => j.id === editingJob.id ? updatedJob : j));
+                    saveJobToCloud(updatedJob);
+                    showToast('อัปเดตข้อมูลงานเรียบร้อยแล้ว');
                 } else {
                     const nextNum = jobs.length > 0 ? Math.max(...jobs.map(j => parseInt(j.id.replace('JOB-', '')) || 100)) + 1 : 101;
                     const job = {
@@ -663,13 +291,13 @@ function getOrCreateSheet() {
                         createdBy: user.name,
                         date: new Date().toLocaleDateString('th-TH'),
                         file: fileData,
-                        fileLink: (fileData && fileData.viewUrl) ? fileData.viewUrl : (newJob.fileLink || ''),
+                        fileLink: newJob.fileLink || '',
                         urgent: newJob.urgent,
                         createdAt: Date.now()
                     };
-                    setJobs(prev => [job, ...prev]);
-                    await saveJobToCloud(job);
-                    showToast('สร้างรายการงานใหม่และอัปโหลดไฟล์สำเร็จ');
+                    setJobs([job, ...jobs]);
+                    saveJobToCloud(job);
+                    showToast('สร้างรายการงานใหม่สำเร็จ');
                 }
                 resetForm();
             };
@@ -694,8 +322,6 @@ function getOrCreateSheet() {
                 setEditingJob(null);
                 setNewJob({ customer: '', phone: '', dueDate: '', price: '', details: '', file: null, fileLink: shopDriveUrl, urgent: false });
                 setIsSaving(false);
-                setUploadProgress(0);
-                setUploadStatusText('');
             };
 
             const handleDownloadHtmlApp = (fileName = 'index.html') => {
@@ -726,7 +352,7 @@ function getOrCreateSheet() {
                         showToast('บันทึก Web App URL สำเร็จ! กำลังโหลดใหม่...');
                         setTimeout(() => window.location.reload(), 1200);
                     } else {
-                        showToast('URL ไม่ถูกต้อง ต้องมาจาก script.google.com และลงท้ายด้วย /exec', 'info');
+                        showToast('URL ไม่ถูกต้อง ต้องเป็นลิงก์ที่มาจาก script.google.com และลงท้ายด้วย /exec', 'info');
                     }
                 } catch (err) {
                     showToast('เกิดข้อผิดพลาดในการบันทึก URL', 'info');
@@ -744,41 +370,33 @@ function getOrCreateSheet() {
                 showToast('ลบรายการงานแล้ว', 'info');
             };
 
-            // แนบไฟล์จากตารางหน้าหลัก (ปลดล็อกขนาดไฟล์ รองรับ 100MB - 10GB พร้อมเปอร์เซ็นต์อัปโหลด)
+            // อัปเดตสถานะและย้ายตำแหน่งงานทันที พร้อมซิงค์ข้อมูลลง Cloud
+            const handleChangeStatus = async (id, newStatus) => {
+                const target = jobs.find(j => j.id === id);
+                if (!target) return;
+                const updated = { ...target, status: newStatus };
+                setJobs(jobs.map(j => j.id === id ? updated : j));
+                await saveJobToCloud(updated);
+                const stLabel = STATUSES.find(s => s.id === newStatus)?.label;
+                showToast(`ย้ายงานไปยังสถานะ "${stLabel}" แล้ว`);
+            };
+
             const handleRowFileChange = async (jobId, e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                // รองรับสูงสุด 10GB
-                if (file.size > 10 * 1024 * 1024 * 1024) {
-                    setRowFileErrors(prev => ({ ...prev, [jobId]: 'รองรับขนาดไฟล์สูงสุดไม่เกิน 10GB' }));
+                if (file.size > 1073741824) {
+                    setRowFileErrors(prev => ({ ...prev, [jobId]: 'ขนาดไฟล์เกิน 1GB' }));
                     e.target.value = null;
                     return;
                 }
                 setRowFileErrors(prev => ({ ...prev, [jobId]: '' }));
-                setUploadingJobId(jobId);
-                setUploadProgress(1);
-                setUploadStatusText('กำลังเริ่มต้นอัปโหลด...');
-
-                const fileData = await processFileObject(file, (percent, statusTxt) => {
-                    setUploadProgress(percent);
-                    setUploadStatusText(statusTxt);
-                });
-
+                const fileData = await processFileObject(file);
                 const target = jobs.find(j => j.id === jobId);
-                if (target && fileData) {
-                    const updated = {
-                        ...target,
-                        file: fileData,
-                        fileLink: fileData.viewUrl ? fileData.viewUrl : target.fileLink
-                    };
-                    setJobs(prev => prev.map(j => j.id === jobId ? updated : j));
-                    await saveJobToCloud(updated);
-                    showToast(fileData.isCloudReady ? `อัปโหลดไฟล์ (${formatFileSize(file.size)}) สำเร็จ! เพื่อนกดดาวน์โหลดได้เลย` : 'แนบไฟล์สำเร็จ');
+                if (target) {
+                    const updated = { ...target, file: fileData };
+                    setJobs(jobs.map(j => j.id === jobId ? updated : j));
+                    showToast('แนบไฟล์เข้าเครื่องนี้เรียบร้อย');
                 }
-                setUploadingJobId(null);
-                setUploadProgress(0);
-                setUploadStatusText('');
             };
 
             const handleRemoveRowFile = async (jobId) => {
@@ -788,8 +406,7 @@ function getOrCreateSheet() {
                 }
                 if (target) {
                     const updated = { ...target, file: null };
-                    setJobs(prev => prev.map(j => j.id === jobId ? updated : j));
-                    await saveJobToCloud(updated);
+                    setJobs(jobs.map(j => j.id === jobId ? updated : j));
                     showToast('ลบไฟล์แนบแล้ว', 'info');
                 }
             };
@@ -827,14 +444,14 @@ function getOrCreateSheet() {
                 e.target.value = null;
             };
 
-            const copyTextToClipboard = (text, msg = 'คัดลอกเรียบร้อยแล้ว') => {
+            const copyTextToClipboard = (text) => {
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast(msg);
+                showToast('คัดลอกลิงก์แล้ว');
             };
 
             const canEditJob = (statusId, roleId) => {
@@ -856,7 +473,7 @@ function getOrCreateSheet() {
                                 <p className="text-emerald-100 text-sm mt-1">ระบบบริหารจัดการคิวงานร้านป้ายไวนิลครบวงจร</p>
                                 <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-700/60 text-emerald-100">
                                     <span className={`w-2 h-2 rounded-full mr-2 ${isCloudConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></span>
-                                    {isLoadingCloud ? 'กำลังเชื่อมต่อฐานข้อมูล...' : isCloudConnected ? 'Cloud Online (ซิงค์ไฟล์ & ข้อมูล)' : 'Local Offline Mode'}
+                                    {isLoadingCloud ? 'กำลังเชื่อมต่อฐานข้อมูล...' : isCloudConnected ? 'Cloud Online (Google Sheets)' : 'Local Offline Mode'}
                                 </div>
                             </div>
                             <div className="p-8">
@@ -949,13 +566,13 @@ function getOrCreateSheet() {
                                 </a>
 
                                 <button 
-                                    onClick={() => { setSharingTab('cloud'); setIsSharingModalOpen(true); }}
-                                    title="การตั้งค่า Cloud และการแชร์ไฟล์"
+                                    onClick={() => { setSharingTab('github'); setIsSharingModalOpen(true); }}
+                                    title="การตั้งค่าและการแชร์"
                                     className="text-xs bg-gray-900 text-white hover:bg-gray-800 px-3 py-1.5 rounded-xl font-semibold transition flex items-center"
                                 >
-                                    <i className="fas fa-cloud-arrow-up mr-1.5 text-sm text-emerald-400"></i>
-                                    <span className="hidden sm:inline">ตั้งค่า Cloud / แชร์ไฟล์</span>
-                                    <span className="sm:hidden">Cloud</span>
+                                    <i className="fab fa-github mr-1.5 text-sm"></i>
+                                    <span className="hidden sm:inline">GitHub Pages / การแชร์</span>
+                                    <span className="sm:hidden">แชร์</span>
                                 </button>
 
                                 <div className="hidden xl:flex items-center space-x-1">
@@ -997,7 +614,7 @@ function getOrCreateSheet() {
                         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900">กระดานติดตามสถานะงาน</h2>
-                                <p className="text-sm text-gray-500">แนบไฟล์รูปภาพหรือไฟล์งานเพื่อให้ทีมงานทุกเครื่องเปิดดูและกดดาวน์โหลดได้ทันที</p>
+                                <p className="text-sm text-gray-500">คลิกที่การ์ดสถานะด้านล่างเพื่อกรองดูเฉพาะงานที่ต้องการ</p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <div className="relative">
@@ -1060,7 +677,7 @@ function getOrCreateSheet() {
                                     <thead>
                                         <tr className="bg-white border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
                                             <th className="px-6 py-3.5 font-semibold w-1/4">รหัส / ลูกค้า</th>
-                                            <th className="px-6 py-3.5 font-semibold w-2/5">สเปกงาน & ไฟล์สำหรับดาวน์โหลด</th>
+                                            <th className="px-6 py-3.5 font-semibold w-2/5">สเปกงาน & ไฟล์</th>
                                             <th className="px-6 py-3.5 font-semibold">สถานะ</th>
                                             <th className="px-6 py-3.5 font-semibold text-right">จัดการ</th>
                                         </tr>
@@ -1079,7 +696,6 @@ function getOrCreateSheet() {
                                                 const hasPermission = canEditJob(job.status, user.role);
                                                 const isEditableStatus = [1, 2, 9].includes(job.status);
                                                 const canAttachOrDeleteFile = isEditableStatus && hasPermission && user.role !== 'production';
-                                                const isImageFile = job.file?.url && (job.file.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif)$/i.test(job.file.name || ''));
 
                                                 return (
                                                     <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors ${job.urgent ? 'bg-rose-50/20' : ''}`}>
@@ -1106,91 +722,39 @@ function getOrCreateSheet() {
                                                             <div className="mb-2 whitespace-pre-line leading-relaxed">{job.details}</div>
                                                             {job.price && <div className="text-xs font-semibold text-gray-600 mb-2">ราคา/มัดจำ: <span className="text-emerald-700">{job.price} บาท</span></div>}
 
-                                                            <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                                {/* ลิงก์ Google Drive */}
-                                                                {job.fileLink && (!job.file || job.fileLink !== job.file.viewUrl) && (
-                                                                    <div className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-800 px-3 py-1.5 rounded-xl border border-blue-200">
-                                                                        <i className="fab fa-google-drive text-blue-600"></i>
-                                                                        <a href={job.fileLink} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline truncate max-w-[180px]">
-                                                                            {job.fileLink === DEFAULT_SHOP_DRIVE_URL ? 'โฟลเดอร์ Drive ร้าน' : 'เปิดลิงก์ไฟล์แนบ'}
-                                                                        </a>
-                                                                        <button onClick={() => copyTextToClipboard(job.fileLink, 'คัดลอกลิงก์แล้ว')} className="text-blue-600 hover:bg-blue-100 font-semibold px-1.5 py-0.5 bg-white rounded border text-[10px]">คัดลอก</button>
-                                                                    </div>
-                                                                )}
+                                                            {job.fileLink && (
+                                                                <div className="mb-2 flex items-center gap-1.5 text-xs bg-blue-50 text-blue-800 px-3 py-1.5 rounded-xl border border-blue-200 w-fit max-w-full">
+                                                                    <i className="fab fa-google-drive text-blue-600"></i>
+                                                                    <a href={job.fileLink} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline truncate max-w-[200px]">
+                                                                        {job.fileLink === DEFAULT_SHOP_DRIVE_URL ? 'โฟลเดอร์ Google Drive ร้าน' : job.fileLink}
+                                                                    </a>
+                                                                    <button onClick={() => copyTextToClipboard(job.fileLink)} className="text-blue-600 font-semibold px-1.5 bg-white rounded border text-[11px]">คัดลอก</button>
+                                                                </div>
+                                                            )}
 
-                                                                {/* แสดงแถบเปอร์เซ็นต์ขณะกำลังอัปโหลดไฟล์ใหญ่ */}
-                                                                {uploadingJobId === job.id ? (
-                                                                    <div className="w-full max-w-xs bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                                                                        <div className="flex justify-between items-center text-xs font-semibold text-emerald-800 mb-1">
-                                                                            <span className="truncate"><i className="fas fa-spinner fa-spin mr-1.5"></i>{uploadStatusText || 'กำลังอัปโหลดไฟล์...'}</span>
-                                                                            <span>{uploadProgress}%</span>
-                                                                        </div>
-                                                                        <div className="w-full bg-emerald-200 rounded-full h-2 overflow-hidden">
-                                                                            <div className="bg-emerald-600 h-2 rounded-full transition-all duration-300" style={{ width: `${Math.max(5, uploadProgress)}%` }}></div>
-                                                                        </div>
+                                                            {job.file ? (
+                                                                <div className="inline-flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                                                                    <i className="fas fa-file-arrow-down text-emerald-600"></i>
+                                                                    <a href={job.file.url} download={job.file.name} target="_blank" rel="noreferrer" className="text-emerald-800 hover:underline font-medium text-xs truncate max-w-[180px]">
+                                                                        {job.file.name}
+                                                                    </a>
+                                                                    {canAttachOrDeleteFile && (
+                                                                        <button onClick={() => handleRemoveRowFile(job.id)} className="text-gray-400 hover:text-red-600 ml-2 pl-2 border-l border-emerald-200">
+                                                                            <i className="fas fa-trash-can text-xs"></i>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                canAttachOrDeleteFile && (
+                                                                    <div>
+                                                                        <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-gray-300 text-gray-600 hover:border-emerald-500 rounded-xl text-xs cursor-pointer transition">
+                                                                            <i className="fas fa-cloud-arrow-up mr-1.5"></i> แนบไฟล์ (เฉพาะเครื่อง)
+                                                                            <input type="file" className="hidden" onChange={(e) => handleRowFileChange(job.id, e)} />
+                                                                        </label>
+                                                                        {rowFileErrors[job.id] && <p className="text-red-500 text-xs mt-1">{rowFileErrors[job.id]}</p>}
                                                                     </div>
-                                                                ) : job.file ? (
-                                                                    <div className="inline-flex items-center space-x-2.5 bg-emerald-50 border border-emerald-300 px-3.5 py-2 rounded-xl shadow-xs">
-                                                                        {isImageFile && (
-                                                                            <img 
-                                                                                src={job.file.url} 
-                                                                                alt={job.file.name} 
-                                                                                onClick={() => setPreviewFile(job.file)}
-                                                                                className="w-9 h-9 object-cover rounded-lg border border-emerald-300 cursor-pointer hover:opacity-80"
-                                                                                title="คลิกเพื่อดูรูปขนาดใหญ่"
-                                                                            />
-                                                                        )}
-                                                                        {!isImageFile && (
-                                                                            <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                                                                                <i className="fas fa-file-zipper text-base"></i>
-                                                                            </div>
-                                                                        )}
-                                                                        
-                                                                        <div className="flex flex-col">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <span className="text-emerald-950 font-bold text-xs truncate max-w-[170px]" title={job.file.name}>{job.file.name}</span>
-                                                                                {job.file.size && (
-                                                                                    <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-semibold">
-                                                                                        {formatFileSize(job.file.size)}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 mt-1">
-                                                                                {isImageFile && (
-                                                                                    <button onClick={() => setPreviewFile(job.file)} className="text-[11px] bg-white text-blue-600 border border-blue-200 px-2 py-0.5 rounded-lg hover:bg-blue-50 font-semibold">
-                                                                                        <i className="fas fa-eye mr-1"></i>ดูรูป
-                                                                                    </button>
-                                                                                )}
-                                                                                <a 
-                                                                                    href={job.file.url} 
-                                                                                    download={job.file.name} 
-                                                                                    target="_blank" 
-                                                                                    rel="noreferrer" 
-                                                                                    className="text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-0.5 rounded-lg font-bold flex items-center shadow-xs transition"
-                                                                                >
-                                                                                    <i className="fas fa-download mr-1"></i> กดดาวน์โหลดไฟล์
-                                                                                </a>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {canAttachOrDeleteFile && (
-                                                                            <button onClick={() => handleRemoveRowFile(job.id)} title="ลบไฟล์แนบ" className="text-gray-400 hover:text-red-600 ml-1 pl-2 border-l border-emerald-200">
-                                                                                <i className="fas fa-trash-can text-xs"></i>
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    canAttachOrDeleteFile && (
-                                                                        <div>
-                                                                            <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-emerald-500 text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-semibold cursor-pointer transition shadow-2xs">
-                                                                                <i className="fas fa-cloud-arrow-up mr-1.5 text-emerald-600"></i> แนบไฟล์งาน (รองรับไฟล์ใหญ่ 100MB - 10GB)
-                                                                                <input type="file" className="hidden" onChange={(e) => handleRowFileChange(job.id, e)} />
-                                                                            </label>
-                                                                            {rowFileErrors[job.id] && <p className="text-red-500 text-xs mt-1">{rowFileErrors[job.id]}</p>}
-                                                                        </div>
-                                                                    )
-                                                                )}
-                                                            </div>
+                                                                )
+                                                            )}
                                                         </td>
 
                                                         <td className="px-6 py-4 align-top">
@@ -1236,32 +800,6 @@ function getOrCreateSheet() {
                         </div>
                     </main>
 
-                    {/* Modal พรีวิวรูปภาพและดาวน์โหลด */}
-                    {previewFile && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50" onClick={() => setPreviewFile(null)}>
-                            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border" onClick={e => e.stopPropagation()}>
-                                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                                    <h3 className="font-bold text-gray-800 text-sm truncate">{previewFile.name}</h3>
-                                    <button onClick={() => setPreviewFile(null)} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-lg"></i></button>
-                                </div>
-                                <div className="p-6 bg-slate-900 flex justify-center items-center max-h-[70vh] overflow-auto">
-                                    <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg" />
-                                </div>
-                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
-                                    <span className="text-xs text-emerald-700 font-medium">
-                                        <i className="fas fa-cloud-check mr-1"></i> ซิงค์ข้อมูลพร้อมให้ทีมงานดาวน์โหลด
-                                    </span>
-                                    <div className="flex space-x-2">
-                                        <a href={previewFile.url} download={previewFile.name} target="_blank" rel="noreferrer" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center">
-                                            <i className="fas fa-download mr-1.5"></i> ดาวน์โหลดไฟล์นี้
-                                        </a>
-                                        <button onClick={() => setPreviewFile(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold">ปิด</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Modal เพิ่ม/แก้ไขงาน */}
                     {isAddingJob && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -1304,42 +842,21 @@ function getOrCreateSheet() {
                                         <label htmlFor="urgentCheck" className="text-sm font-medium text-gray-700 cursor-pointer">งานด่วนพิเศษ</label>
                                     </div>
                                     {user.role !== 'production' && (
-                                        <div className="space-y-3 pt-3 border-t">
-                                            <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
-                                                <label className="block text-xs font-bold text-emerald-900 mb-1">
-                                                    <i className="fas fa-cloud-arrow-up text-emerald-600 mr-1"></i> แนบไฟล์งานพิมพ์ / รูปภาพ (รองรับไฟล์ขนาดใหญ่ 100MB - 10GB)
-                                                </label>
-                                                <input type="file" onChange={e => setNewJob({...newJob, file: e.target.files[0]})} className="w-full text-xs bg-white border p-1.5 rounded-xl" />
-                                                <p className="text-[11px] text-emerald-700 mt-1.5">
-                                                    * ใส่ไฟล์ใหญ่ (.TIFF, .PSD, .AI, .PDF, .ZIP) ได้เลย ระบบจะอัปโหลดขึ้น Cloud อัตโนมัติเพื่อให้เพื่อนกดปุ่มดาวน์โหลดจากหน้าตารางได้ทันทีโดยไม่ต้องเข้า Google Drive
-                                                </p>
+                                        <div className="space-y-3 pt-2 border-t">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">ลิงก์ Google Drive / โฟลเดอร์ร้าน</label>
+                                                <input type="text" value={newJob.fileLink} onChange={e => setNewJob({...newJob, fileLink: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-xs" />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                                    <i className="fab fa-google-drive text-blue-600 mr-1"></i> ลิงก์สำรอง (ถ้ามี)
-                                                </label>
-                                                <input type="text" value={newJob.fileLink} onChange={e => setNewJob({...newJob, fileLink: e.target.value})} placeholder="วางลิงก์เพิ่มเติม (ถ้ามี)..." className="w-full px-3.5 py-2 rounded-xl border outline-none text-xs" />
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">แนบไฟล์ตัวอย่าง (เฉพาะเครื่อง)</label>
+                                                <input type="file" onChange={e => setNewJob({...newJob, file: e.target.files[0]})} className="w-full text-xs border p-1 rounded-xl" />
                                             </div>
                                         </div>
                                     )}
-
-                                    {/* แสดงแถบความคืบหน้าเวลาอัปโหลดไฟล์ใหญ่ในหน้าต่างเปิดใบงาน */}
-                                    {isSaving && uploadProgress > 0 && (
-                                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
-                                            <div className="flex justify-between text-xs font-bold text-emerald-800 mb-1">
-                                                <span>{uploadStatusText || 'กำลังอัปโหลดไฟล์ขนาดใหญ่...'}</span>
-                                                <span>{uploadProgress}%</span>
-                                            </div>
-                                            <div className="w-full bg-emerald-200 rounded-full h-2.5 overflow-hidden">
-                                                <div className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${Math.max(5, uploadProgress)}%` }}></div>
-                                            </div>
-                                        </div>
-                                    )}
-
                                     <div className="pt-4 flex space-x-3">
                                         <button type="button" onClick={resetForm} disabled={isSaving} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-sm font-medium disabled:opacity-50">ยกเลิก</button>
                                         <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium shadow-md disabled:opacity-70 flex items-center justify-center">
-                                            {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังอัปโหลดไฟล์ ({uploadProgress}%)...</> : 'บันทึกงาน'}
+                                            {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...</> : 'บันทึก'}
                                         </button>
                                     </div>
                                 </form>
@@ -1376,15 +893,9 @@ function getOrCreateSheet() {
                                         <strong className="block mb-1 text-gray-700">สเปก / รายละเอียดงาน:</strong>
                                         <div className="whitespace-pre-line bg-slate-50 p-3 rounded-xl border">{printingJob.details}</div>
                                     </div>
-                                    {printingJob.file?.url && printingJob.file.url.startsWith('data:image') && (
-                                        <div className="py-2 text-center">
-                                            <p className="text-xs text-gray-500 mb-1">รูปตัวอย่างงานแนบ:</p>
-                                            <img src={printingJob.file.url} alt="ตัวอย่างงาน" className="max-h-44 mx-auto border rounded-lg object-contain" />
-                                        </div>
-                                    )}
                                     <div className="text-xs text-gray-500 flex justify-between pt-2">
                                         <span>ออกใบงานโดย: {printingJob.createdBy} ({printingJob.date})</span>
-                                        <span>ไฟล์แนบ: {printingJob.file ? printingJob.file.name : (printingJob.fileLink ? 'ดูใน Google Drive' : '-')}</span>
+                                        <span>ลิงก์ไฟล์: {printingJob.fileLink ? 'มีไดรฟ์กลาง' : '-'}</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs">
                                         <div className="border-t pt-2 border-gray-400">ผู้รับงาน / ออกแบบ</div>
@@ -1403,59 +914,58 @@ function getOrCreateSheet() {
                         </div>
                     )}
 
-                    {/* Modal ตั้งค่า Cloud / Google Sheets Code.gs / GitHub Pages */}
+                    {/* Modal ตั้งค่า Cloud / GitHub Pages */}
                     {isSharingModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
                             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border my-8">
                                 <div className="px-6 py-4 bg-gray-900 text-white flex justify-between items-center">
                                     <h3 className="font-bold text-lg flex items-center">
-                                        <i className="fas fa-cloud-arrow-up mr-2 text-emerald-400"></i> ตั้งค่าระบบแชร์ไฟล์ & Cloud
+                                        <i className="fab fa-github mr-2 text-xl"></i> การตั้งค่าและการแชร์
                                     </h3>
                                     <button onClick={() => setIsSharingModalOpen(false)} className="text-white/80 hover:text-white"><i className="fas fa-times text-xl"></i></button>
                                 </div>
 
                                 <div className="flex border-b bg-gray-50 px-6 pt-3 space-x-2">
-                                    <button onClick={() => setSharingTab('cloud')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'cloud' ? 'bg-white text-emerald-700' : 'text-gray-500'}`}>
-                                        1. ตั้งค่า Google Sheets + โค้ดรับไฟล์
+                                    <button onClick={() => setSharingTab('github')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'github' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
+                                        1. วิธีแชร์ให้เพื่อนใช้
                                     </button>
                                     <button onClick={() => setSharingTab('drive')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'drive' ? 'bg-white text-blue-700' : 'text-gray-500'}`}>
                                         2. Google Drive ร้าน
                                     </button>
-                                    <button onClick={() => setSharingTab('github')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'github' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
-                                        3. อัปเดตขึ้น GitHub Pages
+                                    <button onClick={() => setSharingTab('cloud')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'cloud' ? 'bg-white text-emerald-700' : 'text-gray-500'}`}>
+                                        3. ตั้งค่า Google Sheets
                                     </button>
                                 </div>
 
                                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                                    {sharingTab === 'cloud' && (
+                                    {sharingTab === 'github' && (
                                         <div className="space-y-4">
-                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-emerald-900 text-sm">
-                                                        <i className="fas fa-code mr-1.5 text-emerald-600"></i> โค้ด Apps Script ใหม่ (รองรับการแนบไฟล์และอัปโหลดเข้า Drive อัตโนมัติ)
-                                                    </h4>
-                                                    <button 
-                                                        onClick={() => copyTextToClipboard(GAS_CODE_TEMPLATE, 'คัดลอกโค้ด Code.gs เรียบร้อย!')}
-                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 shadow-sm"
-                                                    >
-                                                        <i className="fas fa-copy mr-1"></i> คัดลอกโค้ด Code.gs
-                                                    </button>
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 text-sm">ดาวน์โหลดไฟล์ <code className="bg-white px-1 rounded text-emerald-700">index.html</code></h4>
+                                                    <p className="text-xs text-gray-600 mt-0.5">ไฟล์หน้าแรกของ GitHub Pages ต้องชื่อ index.html เท่านั้น</p>
                                                 </div>
-                                                <p className="text-xs text-emerald-800 mb-2">
-                                                    เพื่อให้ไฟล์ที่แนบไม่หายและเพื่อนกดดาวน์โหลดได้ ให้คัดลอกโค้ดด้านล่างนี้ไปวางทับใน <strong>Extensions &gt; Apps Script</strong> ของ Google Sheets แล้วกด <strong>Deploy &gt; New deployment</strong> อีกครั้งครับ:
-                                                </p>
-                                                <pre className="bg-slate-900 text-emerald-300 p-3 rounded-xl text-[11px] font-mono overflow-x-auto max-h-40">
-                                                    {GAS_CODE_TEMPLATE}
-                                                </pre>
+                                                <button onClick={() => handleDownloadHtmlApp('index.html')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center shrink-0">
+                                                    <i className="fas fa-download mr-2"></i> ดาวน์โหลดไฟล์
+                                                </button>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-sm font-bold text-gray-700 mb-1">วาง Web App URL ที่ได้จาก Apps Script (ลงท้ายด้วย /exec):</label>
-                                                <textarea rows="2" value={gasUrlInput} onChange={e => setGasUrlInput(e.target.value)} placeholder='https://script.google.com/macros/s/..../exec' className="w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 rounded-xl border"></textarea>
-                                                <div className="flex justify-end mt-2">
-                                                    <button onClick={handleSaveGasUrl} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700">
-                                                        บันทึกและเชื่อมต่อ Google Sheets
-                                                    </button>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">1. สร้าง Repository ใหม่</div>
+                                                    <p className="text-gray-600">ไปที่ <a href="https://github.com/new" target="_blank" rel="noreferrer" className="text-blue-600 underline">github.com/new</a> ตั้งชื่อ เช่น <code className="bg-gray-100 px-1">vinyl-shop</code> เลือก Public แล้วกด Create</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">2. อัปโหลดไฟล์</div>
+                                                    <p className="text-gray-600">คลิก "uploading an existing file" ลากไฟล์ <code className="bg-gray-100 px-1">index.html</code> ใส่แล้วกด Commit changes</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">3. เปิด Pages</div>
+                                                    <p className="text-gray-600">ไปที่ Settings &rarr; Pages &rarr; ตรง Branch เลือก <code className="bg-gray-100 px-1">main</code> แล้วกด Save</p>
+                                                </div>
+                                                <div className="border rounded-2xl p-3.5 bg-white">
+                                                    <div className="font-bold mb-1">4. พร้อมใช้งาน</div>
+                                                    <p className="text-gray-600">รอ 1 นาที จะได้ลิงก์ร้านค้าของคุณไปเปิดในทุกเครื่องได้ทันที</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -1464,35 +974,43 @@ function getOrCreateSheet() {
                                     {sharingTab === 'drive' && (
                                         <div className="space-y-3">
                                             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                                                <h4 className="font-bold text-blue-900 text-sm mb-1"><i className="fab fa-google-drive mr-2 text-blue-600"></i> โฟลเดอร์ Google Drive กลางของร้าน</h4>
-                                                <p className="text-xs text-blue-800 mb-3">สำหรับไฟล์งานพิมพ์ไวนิลขนาดใหญ่ (เช่น .AI, .PSD, .TIFF หลายร้อย MB) แนะนำให้อัปโหลดลงโฟลเดอร์นี้ หรือนำลิงก์มาวางในช่องลิงก์ของแต่ละใบงานครับ</p>
+                                                <h4 className="font-bold text-blue-900 text-sm mb-1"><i className="fab fa-google-drive mr-2 text-blue-600"></i> Google Drive ของร้าน</h4>
+                                                <p className="text-xs text-blue-800 mb-3">ลิงก์โฟลเดอร์ร้านที่คุณบันทึกไว้ถูกฝังในระบบแล้ว พนักงานทุกคนสามารถกดเปิดเพื่อรับส่งไฟล์ใหญ่ได้</p>
                                                 <input type="text" value={shopDriveUrl} onChange={e => setShopDriveUrl(e.target.value)} className="w-full px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl mb-2 font-mono" />
                                                 <div className="flex gap-2">
                                                     <button onClick={() => copyTextToClipboard(shopDriveUrl)} className="px-3 py-1.5 bg-white text-blue-700 border rounded-xl text-xs font-semibold">คัดลอกลิงก์</button>
-                                                    <a href={shopDriveUrl} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center">เปิดไดรฟ์ร้าน</a>
+                                                    <a href={shopDriveUrl} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center">เปิดไดรฟ์</a>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {sharingTab === 'github' && (
-                                        <div className="space-y-4">
-                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900 text-sm">ดาวน์โหลดไฟล์ <code className="bg-white px-1 rounded text-emerald-700">index.html</code> เวอร์ชันอัปเกรด</h4>
-                                                    <p className="text-xs text-gray-600 mt-0.5">นำไปอัปโหลดทับไฟล์เดิมบน GitHub เพื่อให้เพื่อนทุกคนได้ใช้ระบบแนบไฟล์ใหม่</p>
-                                                </div>
-                                                <button onClick={() => handleDownloadHtmlApp('index.html')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center shrink-0">
-                                                    <i className="fas fa-download mr-2"></i> ดาวน์โหลด index.html
-                                                </button>
+                                    {sharingTab === 'cloud' && (
+                                        <div className="space-y-3">
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-3">
+                                                <h4 className="font-bold text-emerald-900 text-sm mb-2"><i className="fas fa-table mr-2 text-emerald-600"></i> เชื่อมต่อ Google Sheets (ฟรี)</h4>
+                                                <p className="text-xs text-emerald-800 mb-2">เพื่อให้พนักงานทุกคนเห็นคิวงานตรงกันแบบ Real-time</p>
+                                                <ol className="text-xs text-emerald-800 space-y-1.5 list-decimal pl-4">
+                                                    <li>เปิดหน้าเว็บ <a href="https://sheets.new" target="_blank" className="underline text-blue-600">สร้าง Google Sheets ใหม่</a> ตั้งชื่อชีตว่า <strong>Jobs</strong></li>
+                                                    <li>ไปที่เมนู <strong>ส่วนขยาย (Extensions)</strong> &gt; <strong>Apps Script</strong></li>
+                                                    <li>ก๊อปปี้โค้ด <code className="bg-emerald-100 px-1 rounded">Code.gs</code> ที่เตรียมไว้ วางแทนที่โค้ดเดิมทั้งหมด แล้วกดบันทึก</li>
+                                                    <li>กดปุ่มสีน้ำเงิน <strong>Deploy (การทำให้ใช้งานได้)</strong> มุมขวาบน &gt; <strong>New Deployment</strong></li>
+                                                    <li>เลือกประเภท <strong>Web app</strong>, และตรง Who has access ให้เลือก <strong>Anyone (ทุกคน)</strong></li>
+                                                    <li>กด Deploy นำ URL ที่ลงท้ายด้วย <code>/exec</code> มาวางด้านล่างนี้</li>
+                                                </ol>
+                                            </div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">Web App URL จาก Apps Script:</label>
+                                            <textarea rows="2" value={gasUrlInput} onChange={e => setGasUrlInput(e.target.value)} placeholder='https://script.google.com/macros/s/..../exec' className="w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 rounded-xl border"></textarea>
+                                            <div className="flex justify-end">
+                                                <button onClick={handleSaveGasUrl} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700">บันทึกและเชื่อมต่อ Sheets</button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
-                                    <span className="text-xs text-gray-500">สถานะ: <strong className={isCloudConnected ? "text-emerald-600" : "text-amber-600"}>{isCloudConnected ? "Cloud Online (พร้อมซิงค์ไฟล์)" : "Local Mode"}</strong></span>
-                                    <button onClick={() => setIsSharingModalOpen(false)} className="px-5 py-2 bg-gray-800 text-white rounded-xl text-sm font-medium">ปิดหน้าต่าง</button>
+                                    <span className="text-xs text-gray-500">สถานะ: <strong className={isCloudConnected ? "text-emerald-600" : "text-amber-600"}>{isCloudConnected ? "Cloud Online (Google Sheets)" : "Local Mode"}</strong></span>
+                                    <button onClick={() => setIsSharingModalOpen(false)} className="px-5 py-2 bg-gray-800 text-white rounded-xl text-sm font-medium">ปิด</button>
                                 </div>
                             </div>
                         </div>
