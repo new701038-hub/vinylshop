@@ -110,7 +110,15 @@
         }
 
         function App() {
-            const [user, setUser] = useState(null);
+            // โหลดข้อมูลผู้ใช้จาก localStorage เพื่อป้องกันหลุดตอนรีเฟรชหน้าจอ
+            const [user, setUser] = useState(() => {
+                try {
+                    const savedUser = localStorage.getItem('vinylshop_current_user');
+                    if (savedUser) return JSON.parse(savedUser);
+                } catch (e) {}
+                return null;
+            });
+
             const [jobs, setJobs] = useState(() => {
                 try {
                     const saved = localStorage.getItem('vinylshop_local_jobs');
@@ -146,6 +154,17 @@
                 setToast({ message, type });
                 setTimeout(() => setToast(null), 3000);
             };
+
+            // บันทึกสถานะผู้ใช้ลง localStorage เมื่อมีการเปลี่ยนแปลง
+            useEffect(() => {
+                try {
+                    if (user) {
+                        localStorage.setItem('vinylshop_current_user', JSON.stringify(user));
+                    } else {
+                        localStorage.removeItem('vinylshop_current_user');
+                    }
+                } catch (e) {}
+            }, [user]);
 
             // ระบบดึงข้อมูลจาก Google Sheets แบบ Real-time
             useEffect(() => {
@@ -230,7 +249,8 @@
                 const name = formData.get('name')?.trim();
                 const role = formData.get('role');
                 if (name && role) {
-                    setUser({ name, role });
+                    const userData = { name, role };
+                    setUser(userData);
                     showToast(`ยินดีต้อนรับ คุณ${name}`);
                 }
             };
@@ -536,7 +556,8 @@
                                         <select 
                                             value={user.role} 
                                             onChange={(e) => {
-                                                setUser({ ...user, role: e.target.value });
+                                                const updatedUser = { ...user, role: e.target.value };
+                                                setUser(updatedUser);
                                                 if (e.target.value !== 'graphic' && statusFilter === 9) setStatusFilter(null);
                                                 showToast(`สลับมุมมองเป็น: ${ROLES.find(r => r.id === e.target.value)?.label.split(' ')[0]}`, 'info');
                                             }}
