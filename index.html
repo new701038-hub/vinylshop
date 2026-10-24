@@ -182,6 +182,72 @@
             });
         };
 
+        // --- ระบบอัปโหลดไฟล์ขึ้น Cloud อัตโนมัติ เพื่อให้เครื่องเพื่อนมองเห็นและดาวน์โหลดได้ทันที ---
+        const uploadFileToPublicCloud = (fileObj, onProgress) => {
+            return new Promise((resolve) => {
+                // ใช้ Litterbox (Catbox) API ฟรี รองรับ CORS และได้ลิงก์ตรง (Direct Download Link) สูงสุด 1GB เก็บได้ 72 ชม.
+                const xhr = new XMLHttpRequest();
+                const formData = new FormData();
+                formData.append('reqtype', 'fileupload');
+                formData.append('time', '72h');
+                formData.append('fileToUpload', fileObj);
+
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable && onProgress) {
+                        const percent = Math.round((event.loaded / event.total) * 100);
+                        onProgress(percent);
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300 && xhr.responseText && xhr.responseText.startsWith('http')) {
+                        resolve(xhr.responseText.trim());
+                    } else {
+                        resolve(null);
+                    }
+                };
+
+                xhr.onerror = () => resolve(null);
+                xhr.open('POST', 'https://litterbox.catbox.moe/resources/internals/api.php', true);
+                xhr.send(formData);
+            });
+        };
+
+        // ฟังก์ชันแพ็กข้อมูลไฟล์แนบพ่วงไปกับ fileLink เพื่อให้ Google Sheets ตัวเดิมบันทึกและส่งต่อให้เครื่องเพื่อนได้ 100%
+        const packFileLinkWithMeta = (cleanFileLink, fileObj) => {
+            const baseLink = (cleanFileLink || DEFAULT_SHOP_DRIVE_URL).split('##FILEMETA##')[0];
+            if (!fileObj) return baseLink;
+            const syncUrl = fileObj.cloudUrl || (fileObj.cloudSyncable ? fileObj.url : null);
+            if (!syncUrl) return baseLink;
+            // หากรหัสไฟล์ยาวเกินไป (เช่น Base64 ยาวๆ) ให้ส่งเฉพาะลิงก์สั้นหรือขนาดที่เหมาะสม
+            if (syncUrl.length > 42000) return baseLink;
+            const meta = {
+                name: fileObj.name || 'ไฟล์แนบ',
+                size: fileObj.size || 0,
+                type: fileObj.type || '',
+                url: syncUrl,
+                cloudUrl: syncUrl,
+                cloudSyncable: true
+            };
+            return `${baseLink}##FILEMETA##${JSON.stringify(meta)}`;
+        };
+
+        const unpackFileLinkAndMeta = (rawFileLink) => {
+            if (!rawFileLink || typeof rawFileLink !== 'string') {
+                return { cleanLink: rawFileLink || '', embeddedFile: null };
+            }
+            if (!rawFileLink.includes('##FILEMETA##')) {
+                return { cleanLink: rawFileLink, embeddedFile: null };
+            }
+            const [cleanLink, metaJson] = rawFileLink.split('##FILEMETA##');
+            try {
+                const embeddedFile = JSON.parse(metaJson);
+                return { cleanLink: cleanLink || '', embeddedFile };
+            } catch (e) {
+                return { cleanLink: cleanLink || '', embeddedFile: null };
+            }
+        };
+
         const formatFileSize = (bytes) => {
             if (!bytes) return '';
             if (bytes < 1024) return bytes + ' B';
@@ -256,6 +322,7 @@
             const [editingJob, setEditingJob] = useState(null);
             const [isSaving, setIsSaving] = useState(false);
             const [uploadingJobId, setUploadingJobId] = useState(null);
+            const [uploadProgress, setUploadProgress] = useState(0);
             const [printingJob, setPrintingJob] = useState(null);
             const [previewFile, setPreviewFile] = useState(null);
             const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
@@ -333,14 +400,30 @@
                                 });
 
                                 const merged = fetchedJobs.map(job => {
-                                    const cloudFile = parseCloudFileField(job.file);
+                                    const { cleanLink, embeddedFile } = unpackFileLinkAndMeta(job.fileLink);
+                                    const cloudFile = parseCloudFileField(job.file) || embeddedFile;
                                     const localFile = fileMap[job.id] || null;
+
+                                    // ผสานไฟล์ในเครื่องกับไฟล์บน Cloud เพื่อให้ทุกเครื่องเห็นตรงกัน
+                                    let finalFile = null;
+                                    if (localFile && cloudFile) {
+                                        finalFile = {
+                                            ...cloudFile,
+                                            ...localFile,
+                                            cloudUrl: localFile.cloudUrl || cloudFile.cloudUrl || cloudFile.url,
+                                            cloudSyncable: true
+                                        };
+                                    } else {
+                                        finalFile = localFile || cloudFile || null;
+                                    }
+
                                     return {
                                         ...job,
+                                        fileLink: cleanLink,
                                         urgent: job.urgent === true || job.urgent === 'true',
                                         status: parseInt(job.status) || 1,
                                         createdAt: parseInt(job.createdAt) || Date.now(),
-                                        file: localFile || cloudFile || null
+                                        file: finalFile
                                     };
                                 });
                                 return merged;
@@ -384,14 +467,20 @@
                 if (url) {
                     try {
                         const safeJobData = { ...jobData };
-                        // หากมีข้อมูลไฟล์ขนาดกะทัดรัด (เช่น รูปที่ย่อแล้ว หรือลิงก์ไฟล์) ให้ส่งไปบันทึกบน Google Sheets ด้วยเพื่อให้เพื่อนโหลดได้
+                        const cleanLink = (safeJobData.fileLink || '').split('##FILEMETA##')[0];
+
+                        // พ่วงข้อมูลไฟล์แนบเข้าไปใน fileLink ด้วย เพื่อให้ Google Sheets เดิมส่งต่อไฟล์ให้เพื่อนทุกเครื่องได้ 100%
+                        safeJobData.fileLink = packFileLinkWithMeta(cleanLink, safeJobData.file);
+
                         if (safeJobData.file) {
                             const syncUrl = safeJobData.file.cloudUrl || (safeJobData.file.cloudSyncable ? safeJobData.file.url : null);
                             if (syncUrl && syncUrl.length < 47000) {
                                 safeJobData.file = JSON.stringify({
                                     name: safeJobData.file.name,
                                     size: safeJobData.file.size || 0,
+                                    type: safeJobData.file.type || '',
                                     url: syncUrl,
+                                    cloudUrl: syncUrl,
                                     cloudSyncable: true
                                 });
                             } else {
@@ -427,8 +516,8 @@
                 }
             };
 
-            // ประมวลผลไฟล์: เก็บไฟล์ต้นฉบับเต็มความละเอียดไว้ใน IndexedDB และสร้างข้อมูลซิงค์สำหรับเพื่อนร่วมงาน
-            const processFileObject = async (fileObj, jobId = null) => {
+            // ประมวลผลไฟล์: เก็บไฟล์ต้นฉบับในเครื่อง + อัปโหลดขึ้น Cloud เพื่อให้เครื่องเพื่อนเห็นและโหลดได้ทันที
+            const processFileObject = async (fileObj, jobId = null, onProgress = null) => {
                 if (!fileObj) return null;
                 if (!(fileObj instanceof File)) return fileObj;
 
@@ -436,15 +525,21 @@
                 let cloudUrl = null;
                 let cloudSyncable = false;
 
-                // 1. หากเป็นรูปภาพ ให้บีบอัดเพื่อซิงค์ผ่าน Google Sheets ได้ทันที
-                if (fileObj.type && fileObj.type.startsWith('image/')) {
+                // 1. ลองอัปโหลดไฟล์ขึ้น Cloud กลางก่อนเพื่อให้ได้ลิงก์ตรง (เพื่อนโหลดไฟล์ต้นฉบับเต็มขนาดได้)
+                const uploadedDirectUrl = await uploadFileToPublicCloud(fileObj, onProgress);
+                if (uploadedDirectUrl) {
+                    cloudUrl = uploadedDirectUrl;
+                    cloudSyncable = true;
+                } 
+                // 2. หากอัปโหลดไม่ผ่านและเป็นรูปภาพ ให้บีบอัดเป็น Base64 ส่งผ่าน Google Sheets แทน
+                else if (fileObj.type && fileObj.type.startsWith('image/')) {
                     const compactDataUrl = await createCompactImageForCloud(fileObj);
                     if (compactDataUrl) {
                         cloudUrl = compactDataUrl;
                         cloudSyncable = true;
                     }
                 } 
-                // 2. หากเป็นไฟล์ขนาดเล็ก (< 30KB เช่น .txt, .svg, ไฟล์เล็ก) แปลงเป็น DataURL เพื่อซิงค์ผ่าน Sheets
+                // 3. หากเป็นไฟล์ขนาดเล็ก (< 30KB) แปลงเป็น DataURL ส่งผ่าน Google Sheets
                 else if (fileObj.size <= 30 * 1024) {
                     cloudUrl = await new Promise((resolve) => {
                         const reader = new FileReader();
@@ -459,7 +554,8 @@
                     name: fileObj.name,
                     size: fileObj.size,
                     type: fileObj.type || 'application/octet-stream',
-                    url: localBlobUrl,
+                    url: cloudUrl || localBlobUrl,
+                    localUrl: localBlobUrl,
                     cloudUrl: cloudUrl,
                     cloudSyncable: cloudSyncable,
                     blob: fileObj
@@ -491,11 +587,12 @@
                 if (!newJob.customer.trim() || !newJob.details.trim()) return;
 
                 setIsSaving(true);
+                setUploadProgress(0);
 
                 try {
                     if (editingJob) {
                         const fileData = newJob.file instanceof File
-                            ? await processFileObject(newJob.file, editingJob.id)
+                            ? await processFileObject(newJob.file, editingJob.id, (pct) => setUploadProgress(pct))
                             : (newJob.file !== undefined ? newJob.file : editingJob.file);
 
                         const updatedJob = {
@@ -506,16 +603,16 @@
                             price: newJob.price || '',
                             details: newJob.details,
                             urgent: newJob.urgent,
-                            fileLink: newJob.fileLink || '',
+                            fileLink: (newJob.fileLink || '').split('##FILEMETA##')[0],
                             file: fileData
                         };
                         setJobs(prev => prev.map(j => j.id === editingJob.id ? updatedJob : j));
                         await saveJobToCloud(updatedJob);
-                        showToast('อัปเดตข้อมูลงานและไฟล์แนบเรียบร้อยแล้ว');
+                        showToast('อัปเดตข้อมูลงานและแชร์ไฟล์ให้ทีมเรียบร้อยแล้ว');
                     } else {
                         const nextNum = jobs.length > 0 ? Math.max(...jobs.map(j => parseInt(String(j.id).replace('JOB-', '')) || 100)) + 1 : 101;
                         const newId = `JOB-${nextNum}`;
-                        const fileData = newJob.file ? await processFileObject(newJob.file, newId) : null;
+                        const fileData = newJob.file ? await processFileObject(newJob.file, newId, (pct) => setUploadProgress(pct)) : null;
 
                         const job = {
                             id: newId,
@@ -528,13 +625,13 @@
                             createdBy: user.name,
                             date: new Date().toLocaleDateString('th-TH'),
                             file: fileData,
-                            fileLink: newJob.fileLink || '',
+                            fileLink: (newJob.fileLink || '').split('##FILEMETA##')[0],
                             urgent: newJob.urgent,
                             createdAt: Date.now()
                         };
                         setJobs(prev => [job, ...prev]);
                         await saveJobToCloud(job);
-                        showToast('สร้างรายการงานใหม่สำเร็จ');
+                        showToast('สร้างรายการงานใหม่และแชร์ไฟล์สำเร็จ');
                     }
                 } catch (err) {
                     console.error('Error saving job:', err);
@@ -633,21 +730,23 @@
                 }
                 setRowFileErrors(prev => ({ ...prev, [jobId]: '' }));
                 setUploadingJobId(jobId);
+                setUploadProgress(0);
 
                 try {
-                    const fileData = await processFileObject(file, jobId);
+                    const fileData = await processFileObject(file, jobId, (pct) => setUploadProgress(pct));
                     const targetJob = jobs.find(j => j.id === jobId);
                     if (targetJob) {
                         const updatedJob = { ...targetJob, file: fileData };
                         setJobs(prev => prev.map(j => j.id === jobId ? updatedJob : j));
                         await saveJobToCloud(updatedJob);
                     }
-                    showToast(`ฝากไฟล์ "${file.name}" เรียบร้อยแล้ว!`);
+                    showToast(`ฝากไฟล์ "${file.name}" เรียบร้อย! เพื่อนทุกเครื่องกดโหลดได้เลย`);
                 } catch (err) {
                     console.error("File attach error:", err);
                     setRowFileErrors(prev => ({ ...prev, [jobId]: 'แนบไฟล์ไม่สำเร็จ กรุณาลองใหม่' }));
                 } finally {
                     setUploadingJobId(null);
+                    setUploadProgress(0);
                     e.target.value = null;
                 }
             };
@@ -668,15 +767,42 @@
                 showToast('ลบไฟล์แนบแล้ว', 'info');
             };
 
-            const handleDownloadAttachedFile = (fileObj) => {
-                if (!fileObj || !fileObj.url) return;
+            const handleDownloadAttachedFile = async (fileObj) => {
+                if (!fileObj) return;
+                const downloadUrl = fileObj.localUrl || fileObj.cloudUrl || fileObj.url;
+                if (!downloadUrl) return;
+
+                showToast(`กำลังดาวน์โหลด "${fileObj.name}"...`);
+
+                // พยายามดึงเป็น Blob เพื่อบังคับดาวน์โหลดลงเครื่องทันทีโดยไม่เด้งเปลี่ยนหน้า
+                try {
+                    if (downloadUrl.startsWith('http')) {
+                        const response = await fetch(downloadUrl);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = blobUrl;
+                            a.download = fileObj.name || 'download';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    // หากติด CORS ให้ fallback ลงมาใช้ลิงก์ดาวน์โหลดปกติ
+                }
+
                 const a = document.createElement('a');
-                a.href = fileObj.url;
+                a.href = downloadUrl;
                 a.download = fileObj.name || 'download';
+                a.target = '_blank';
+                a.rel = 'noreferrer';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                showToast(`กำลังดาวน์โหลด "${fileObj.name}"`);
             };
 
             const handleExportBackup = () => {
@@ -1016,6 +1142,15 @@
                                                                             {formatFileSize(job.file.size)}
                                                                         </span>
                                                                     )}
+                                                                    {job.file.cloudSyncable ? (
+                                                                        <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-1.5 py-0.5 rounded font-medium" title="ซิงค์ขึ้น Cloud แล้ว เพื่อนทุกเครื่องเห็นไฟล์นี้">
+                                                                            <i className="fas fa-cloud mr-1 text-[9px]"></i>แชร์แล้ว
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium" title="ไฟล์อยู่ในเครื่องนี้เท่านั้น">
+                                                                            เฉพาะเครื่องนี้
+                                                                        </span>
+                                                                    )}
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleDownloadAttachedFile(job.file)}
@@ -1023,7 +1158,7 @@
                                                                     >
                                                                         <i className="fas fa-download mr-1 text-[10px]"></i> โหลด
                                                                     </button>
-                                                                    {(job.file.url?.startsWith('data:image') || job.file.type?.startsWith('image/')) && (
+                                                                    {(job.file.url?.startsWith('data:image') || job.file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(job.file.name || '')) && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setPreviewFile(job.file)}
@@ -1043,7 +1178,7 @@
                                                                     <div>
                                                                         {uploadingJobId === job.id ? (
                                                                             <div className="inline-flex items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-medium">
-                                                                                <i className="fas fa-spinner fa-spin mr-1.5"></i> กำลังบันทึกไฟล์...
+                                                                                <i className="fas fa-spinner fa-spin mr-1.5"></i> กำลังอัปโหลดแชร์ให้ทีม... {uploadProgress > 0 ? `${uploadProgress}%` : ''}
                                                                             </div>
                                                                         ) : (
                                                                             <label className="inline-flex items-center px-3 py-1.5 bg-white border border-dashed border-emerald-400 text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-medium cursor-pointer transition shadow-2xs">
@@ -1162,7 +1297,7 @@
                                     <div className="pt-4 flex space-x-3">
                                         <button type="button" onClick={resetForm} disabled={isSaving} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-sm font-medium disabled:opacity-50">ยกเลิก</button>
                                         <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium shadow-md disabled:opacity-70 flex items-center justify-center">
-                                            {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...</> : 'บันทึก'}
+                                            {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก {uploadProgress > 0 ? `(${uploadProgress}%)` : '...'}</> : 'บันทึก'}
                                         </button>
                                     </div>
                                 </form>
