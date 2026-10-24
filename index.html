@@ -34,7 +34,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -48,13 +48,12 @@
         }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 antialiased">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, Component } = React;
 
-        // ลิงก์ Google Drive กลางและ Google Apps Script ของร้าน
         const DEFAULT_SHOP_DRIVE_URL = 'https://drive.google.com/drive/folders/1tj0L-I8Ba59tHRmJwsvrMZMT21TmNhC1?usp=sharing';
         const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvInMBqFNSbh4rg4BL5tod-CaiCB_oZV-k2blqrpJx4SvQekFXOTXOej2BF9m1ZEiZ/exec';
 
@@ -92,13 +91,13 @@
                 if (this.state.hasError) {
                     return (
                         <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 text-center">
-                            <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-200 max-w-md w-full">
-                                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-200 max-w-md w-full">
+                                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                     <i className="fas fa-triangle-exclamation text-2xl"></i>
                                 </div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-2">ระบบเกิดข้อผิดพลาด</h2>
                                 <p className="text-gray-600 text-sm mb-6 break-words">{this.state.error?.message || "เกิดข้อผิดพลาดในการแสดงผล"}</p>
-                                <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition">
+                                <button onClick={() => window.location.reload()} className="w-full bg-red-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-red-700 transition shadow-lg shadow-red-600/20">
                                     โหลดหน้าเว็บใหม่อีกครั้ง
                                 </button>
                             </div>
@@ -110,7 +109,6 @@
         }
 
         function App() {
-            // โหลดข้อมูลผู้ใช้จาก localStorage เพื่อป้องกันหลุดตอนรีเฟรชหน้าจอ
             const [user, setUser] = useState(() => {
                 try {
                     const savedUser = localStorage.getItem('vinylshop_current_user');
@@ -155,7 +153,6 @@
                 setTimeout(() => setToast(null), 3000);
             };
 
-            // บันทึกสถานะผู้ใช้ลง localStorage เมื่อมีการเปลี่ยนแปลง
             useEffect(() => {
                 try {
                     if (user) {
@@ -166,7 +163,6 @@
                 } catch (e) {}
             }, [user]);
 
-            // ระบบดึงข้อมูลจาก Google Sheets แบบ Real-time
             useEffect(() => {
                 let intervalId = null;
 
@@ -429,39 +425,39 @@
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 flex items-center justify-center p-4">
                         <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-                            <div className="bg-emerald-600 p-8 text-center text-white relative">
-                                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                    <i className="fas fa-scroll text-3xl"></i>
+                            <div className="bg-emerald-600 p-6 sm:p-8 text-center text-white relative">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                    <i className="fas fa-scroll text-2xl sm:text-3xl"></i>
                                 </div>
-                                <h1 className="text-2xl font-bold">VinylShop Pro</h1>
-                                <p className="text-emerald-100 text-sm mt-1">ระบบบริหารจัดการคิวงานร้านป้ายไวนิลครบวงจร</p>
+                                <h1 className="text-xl sm:text-2xl font-bold">VinylShop Pro</h1>
+                                <p className="text-emerald-100 text-xs sm:text-sm mt-1">ระบบบริหารจัดการคิวงานร้านป้ายไวนิลครบวงจร</p>
                                 <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-700/60 text-emerald-100">
                                     <span className={`w-2 h-2 rounded-full mr-2 ${isCloudConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></span>
                                     {isLoadingCloud ? 'กำลังเชื่อมต่อฐานข้อมูล...' : isCloudConnected ? 'Cloud Online (Google Sheets)' : 'Local Offline Mode'}
                                 </div>
                             </div>
-                            <div className="p-8">
-                                <form onSubmit={handleLogin} className="space-y-5">
+                            <div className="p-6 sm:p-8">
+                                <form onSubmit={handleLogin} className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อพนักงาน</label>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">ชื่อพนักงาน</label>
                                         <div className="relative">
-                                            <i className="fas fa-user absolute left-3.5 top-3.5 text-gray-400"></i>
-                                            <input type="text" name="name" required placeholder="เช่น แอน, บอย, ช่างเอก" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                            <i className="fas fa-user absolute left-3.5 top-3.5 text-gray-400 text-sm"></i>
+                                            <input type="text" name="name" required placeholder="เช่น แอน, บอย, ช่างเอก" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">เลือกฝ่าย / หน้าที่</label>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">เลือกฝ่าย / หน้าที่</label>
                                         <div className="relative">
-                                            <i className="fas fa-id-badge absolute left-3.5 top-3.5 text-gray-400"></i>
-                                            <select name="role" required className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                            <i className="fas fa-id-badge absolute left-3.5 top-3.5 text-gray-400 text-sm"></i>
+                                            <select name="role" required className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm">
                                                 <option value="">-- เลือกตำแหน่งงาน --</option>
                                                 {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                                             </select>
                                         </div>
                                     </div>
-                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2">
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 sm:py-3.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2 text-sm sm:text-base">
                                         <span>เข้าสู่ระบบจัดการงาน</span>
-                                        <i className="fas fa-arrow-right text-sm"></i>
+                                        <i className="fas fa-arrow-right text-xs"></i>
                                     </button>
                                 </form>
                             </div>
@@ -492,104 +488,92 @@
             return (
                 <div className="min-h-screen bg-slate-50 pb-16">
                     {toast && (
-                        <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 animate-bounce no-print">
+                        <div className="fixed bottom-5 right-4 left-4 sm:left-auto sm:right-5 z-50 bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 animate-bounce no-print">
                             <i className={`fas ${toast.type === 'info' ? 'fa-info-circle text-blue-400' : 'fa-check-circle text-emerald-400'}`}></i>
-                            <span className="text-sm font-medium">{toast.message}</span>
+                            <span className="text-xs sm:text-sm font-medium">{toast.message}</span>
                         </div>
                     )}
 
-                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20 no-print">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-                            <div className="flex items-center space-x-3">
-                                <div className="bg-emerald-600 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm">
-                                    <i className="fas fa-print text-lg"></i>
+                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20 no-print shadow-xs">
+                        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                                <div className="bg-emerald-600 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fas fa-print text-base sm:text-lg"></i>
                                 </div>
-                                <div>
-                                    <div className="flex items-center space-x-2">
-                                        <span className="font-bold text-lg text-gray-900">VinylShop Pro</span>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${isCloudConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                <div className="min-w-0">
+                                    <div className="flex items-center space-x-1.5">
+                                        <span className="font-bold text-sm sm:text-lg text-gray-900 truncate">VinylShop Pro</span>
+                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold shrink-0 ${isCloudConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isCloudConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
-                                            {isCloudConnected ? 'Cloud Online' : 'Local Offline'}
+                                            {isCloudConnected ? 'Online' : 'Offline'}
                                         </span>
                                     </div>
-                                    <span className="text-xs text-gray-500">ระบบติดตามคิวงานป้ายไวนิล</span>
+                                    <span className="text-[10px] sm:text-xs text-gray-500 block truncate">ระบบติดตามคิวงานป้ายไวนิล</span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center space-x-2 sm:space-x-3">
+                            <div className="flex items-center space-x-1.5 sm:space-x-3">
                                 <a 
                                     href={shopDriveUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    title="เปิดโฟลเดอร์ Google Drive ของร้าน"
-                                    className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-200 font-semibold transition flex items-center"
+                                    title="เปิด Google Drive ร้าน"
+                                    className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2.5 sm:px-3 py-1.5 rounded-xl border border-blue-200 font-semibold transition flex items-center shrink-0"
                                 >
-                                    <i className="fab fa-google-drive mr-1.5 text-sm"></i>
-                                    <span className="hidden sm:inline">ไดรฟ์รวมไฟล์ร้าน</span>
-                                    <span className="sm:hidden">Drive</span>
+                                    <i className="fab fa-google-drive sm:mr-1.5 text-sm"></i>
+                                    <span className="hidden md:inline">ไดรฟ์ร้าน</span>
                                 </a>
 
                                 <button 
                                     onClick={() => { setSharingTab('github'); setIsSharingModalOpen(true); }}
                                     title="การตั้งค่าและการแชร์"
-                                    className="text-xs bg-gray-900 text-white hover:bg-gray-800 px-3 py-1.5 rounded-xl font-semibold transition flex items-center"
+                                    className="text-xs bg-gray-900 text-white hover:bg-gray-800 px-2.5 sm:px-3 py-1.5 rounded-xl font-semibold transition flex items-center shrink-0"
                                 >
-                                    <i className="fab fa-github mr-1.5 text-sm"></i>
-                                    <span className="hidden sm:inline">GitHub Pages / การแชร์</span>
-                                    <span className="sm:hidden">แชร์</span>
+                                    <i className="fab fa-github sm:mr-1.5 text-sm"></i>
+                                    <span className="hidden md:inline">ตั้งค่าระบบ</span>
                                 </button>
 
-                                <div className="hidden xl:flex items-center space-x-1">
-                                    <button onClick={handleExportBackup} title="สำรองข้อมูล" className="text-xs text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg border transition flex items-center">
-                                        <i className="fas fa-download mr-1.5"></i> สำรองข้อมูล
-                                    </button>
-                                    <button onClick={() => importInputRef.current?.click()} title="กู้คืนข้อมูล" className="text-xs text-gray-600 hover:text-blue-700 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg border transition flex items-center">
-                                        <i className="fas fa-upload mr-1.5"></i> กู้คืน
-                                    </button>
-                                    <input ref={importInputRef} type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
-                                </div>
-
-                                <div className="flex items-center bg-gray-100 px-3 py-1.5 rounded-xl border border-gray-200">
-                                    <i className={`fas ${currentRoleObj?.icon} text-emerald-600 mr-2 text-sm`}></i>
-                                    <div className="text-xs">
-                                        <span className="font-semibold text-gray-800 mr-1">{user.name}</span>
+                                <div className="flex items-center bg-gray-100 px-2.5 sm:px-3 py-1.5 rounded-xl border border-gray-200">
+                                    <i className={`fas ${currentRoleObj?.icon} text-emerald-600 mr-1.5 text-xs sm:text-sm shrink-0`}></i>
+                                    <div className="text-[11px] sm:text-xs">
+                                        <span className="font-semibold text-gray-800 mr-1 hidden lg:inline">{user.name}</span>
                                         <select 
                                             value={user.role} 
                                             onChange={(e) => {
                                                 const updatedUser = { ...user, role: e.target.value };
                                                 setUser(updatedUser);
                                                 if (e.target.value !== 'graphic' && statusFilter === 9) setStatusFilter(null);
-                                                showToast(`สลับมุมมองเป็น: ${ROLES.find(r => r.id === e.target.value)?.label.split(' ')[0]}`, 'info');
+                                                showToast(`สลับมุมมองเรียบร้อย`, 'info');
                                             }}
-                                            className="bg-transparent font-medium text-emerald-700 outline-none cursor-pointer"
+                                            className="bg-transparent font-medium text-emerald-700 outline-none cursor-pointer text-xs"
                                         >
                                             {ROLES.map(r => <option key={r.id} value={r.id}>{r.label.split(' ')[0]}</option>)}
                                         </select>
                                     </div>
                                 </div>
 
-                                <button onClick={() => setUser(null)} title="ออกจากระบบ" className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition">
-                                    <i className="fas fa-right-from-bracket text-lg"></i>
+                                <button onClick={() => setUser(null)} title="ออกจากระบบ" className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition shrink-0">
+                                    <i className="fas fa-right-from-bracket text-base sm:text-lg"></i>
                                 </button>
                             </div>
                         </div>
                     </nav>
 
-                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 no-print">
-                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+                    <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mt-4 sm:mt-6 no-print">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4 sm:mb-6">
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900">กระดานติดตามสถานะงาน</h2>
-                                <p className="text-sm text-gray-500">คลิกที่การ์ดสถานะด้านล่างเพื่อกรองดูเฉพาะงานที่ต้องการ</p>
+                                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">กระดานติดตามสถานะงาน</h2>
+                                <p className="text-xs sm:text-sm text-gray-500">แตะที่การ์ดสถานะด้านล่างเพื่อกรองดูเฉพาะงานที่ต้องการ</p>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex flex-col sm:flex-row gap-2.5">
                                 <div className="relative">
-                                    <i className="fas fa-search absolute left-3.5 top-3 text-gray-400 text-sm"></i>
+                                    <i className="fas fa-search absolute left-3.5 top-3 text-gray-400 text-xs sm:text-sm"></i>
                                     <input 
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร..." 
-                                        className="pl-9 pr-8 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-64"
+                                        placeholder="ค้นหาชื่อลูกค้า, เบอร์โทร, รหัส..." 
+                                        className="pl-9 pr-8 py-2.5 bg-white border border-gray-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-64 shadow-xs"
                                     />
                                     {searchQuery && (
                                         <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600">
@@ -597,62 +581,64 @@
                                         </button>
                                     )}
                                 </div>
-                                <button onClick={() => setIsAddingJob(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center">
+                                <button onClick={() => setIsAddingJob(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center text-xs sm:text-sm">
                                     <i className="fas fa-plus mr-2"></i> รับงานใหม่
                                 </button>
                             </div>
                         </div>
 
-                        <div className={`grid grid-cols-2 sm:grid-cols-4 ${user.role === 'graphic' ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-3 mb-8`}>
+                        {/* แผงการ์ดสถานะงาน (Responsive Grid) */}
+                        <div className={`grid grid-cols-3 sm:grid-cols-4 ${user.role === 'graphic' ? 'lg:grid-cols-9' : 'lg:grid-cols-8'} gap-2 sm:gap-3 mb-6 sm:mb-8`}>
                             {statusCounts.map(status => {
                                 const isSelected = statusFilter === status.id;
                                 return (
                                     <div 
                                         key={status.id} 
                                         onClick={() => setStatusFilter(prev => prev === status.id ? null : status.id)}
-                                        className={`bg-white rounded-2xl border p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
+                                        className={`bg-white rounded-2xl border p-2.5 sm:p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
                                             isSelected ? 'ring-2 ring-emerald-600 border-emerald-600 bg-emerald-50/40 shadow-md -translate-y-0.5' : 'border-gray-200 hover:border-emerald-300'
                                         }`}
                                     >
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 ${status.color.split(' ')[0]} ${status.color.split(' ')[1]}`}>
-                                            <i className={`fas ${status.icon} text-base`}></i>
+                                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-1.5 sm:mb-2 ${status.color.split(' ')[0]} ${status.color.split(' ')[1]}`}>
+                                            <i className={`fas ${status.icon} text-xs sm:text-base`}></i>
                                         </div>
-                                        <span className="text-2xl font-bold text-gray-900 leading-tight">{status.count}</span>
-                                        <span className="text-xs font-medium text-gray-600 mt-1 line-clamp-1">{status.label}</span>
+                                        <span className="text-lg sm:text-2xl font-bold text-gray-900 leading-tight">{status.count}</span>
+                                        <span className="text-[10px] sm:text-xs font-medium text-gray-600 mt-0.5 sm:mt-1 line-clamp-1">{status.label}</span>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/70 flex justify-between items-center">
-                                <h3 className="text-base font-bold text-gray-800">
+                        {/* ตารางแสดงรายการงาน */}
+                        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-200 bg-gray-50/70 flex justify-between items-center">
+                                <h3 className="text-xs sm:text-base font-bold text-gray-800 truncate">
                                     <i className="fas fa-list-check mr-2 text-emerald-600"></i>
                                     {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
                                 </h3>
                                 {statusFilter !== null && (
-                                    <button onClick={() => setStatusFilter(null)} className="text-xs font-medium text-emerald-600 hover:underline">
+                                    <button onClick={() => setStatusFilter(null)} className="text-xs font-medium text-emerald-600 hover:underline shrink-0 ml-2">
                                         แสดงทั้งหมด
                                     </button>
                                 )}
                             </div>
                             
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[900px]">
+                                <table className="w-full text-left border-collapse min-w-[750px] sm:min-w-[900px]">
                                     <thead>
-                                        <tr className="bg-white border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
-                                            <th className="px-6 py-3.5 font-semibold w-1/4">รหัส / ลูกค้า</th>
-                                            <th className="px-6 py-3.5 font-semibold w-2/5">สเปกงาน & ลิงก์ดาวน์โหลดไฟล์ (Gofile / Drive)</th>
-                                            <th className="px-6 py-3.5 font-semibold">สถานะ</th>
-                                            <th className="px-6 py-3.5 font-semibold text-right">จัดการ</th>
+                                        <tr className="bg-white border-b border-gray-200 text-[11px] sm:text-xs uppercase tracking-wider text-gray-500">
+                                            <th className="px-4 sm:px-6 py-3 font-semibold w-1/4">รหัส / ลูกค้า</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold w-2/5">สเปกงาน & ไฟล์ (Gofile / Drive)</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold">สถานะ</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold text-right">จัดการ</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100 text-sm">
+                                    <tbody className="divide-y divide-gray-100 text-xs sm:text-sm">
                                         {filteredJobs.length === 0 ? (
                                             <tr>
                                                 <td colSpan="4" className="px-6 py-16 text-center text-gray-400">
-                                                    <i className="fas fa-folder-open text-4xl mb-3 block text-gray-300"></i>
-                                                    <p className="font-medium text-gray-600">ไม่พบรายการงาน</p>
+                                                    <i className="fas fa-folder-open text-3xl sm:text-4xl mb-3 block text-gray-300"></i>
+                                                    <p className="font-medium text-gray-600 text-xs sm:text-sm">ไม่พบรายการงาน</p>
                                                 </td>
                                             </tr>
                                         ) : (
@@ -662,44 +648,44 @@
 
                                                 return (
                                                     <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors ${job.urgent ? 'bg-rose-50/20' : ''}`}>
-                                                        <td className="px-6 py-4 align-top">
-                                                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                                                <span className="text-xs font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded border">{job.id}</span>
+                                                        <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top">
+                                                            <div className="flex flex-wrap items-center gap-1 mb-1">
+                                                                <span className="text-[10px] sm:text-xs font-mono font-bold bg-gray-100 text-gray-700 px-1.5 sm:px-2 py-0.5 rounded border">{job.id}</span>
                                                                 {job.urgent && (
-                                                                    <span className="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                                                                        <i className="fas fa-fire mr-1"></i> ด่วน
+                                                                    <span className="bg-rose-100 text-rose-700 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full">
+                                                                        <i className="fas fa-fire mr-0.5"></i> ด่วน
                                                                     </span>
                                                                 )}
                                                                 {job.dueDate && (
-                                                                    <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium px-2 py-0.5 rounded-full">
+                                                                    <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] sm:text-[11px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full">
                                                                         นัด: {job.dueDate}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <div className="font-bold text-gray-900 text-base">{job.customer}</div>
-                                                            {job.phone && <div className="text-xs text-emerald-700 font-medium mt-0.5"><i className="fas fa-phone mr-1"></i>{job.phone}</div>}
-                                                            <div className="text-xs text-gray-400 mt-1">{job.date} • รับโดย: {job.createdBy}</div>
+                                                            <div className="font-bold text-gray-900 text-sm sm:text-base">{job.customer}</div>
+                                                            {job.phone && <div className="text-[11px] sm:text-xs text-emerald-700 font-medium mt-0.5"><i className="fas fa-phone mr-1"></i>{job.phone}</div>}
+                                                            <div className="text-[10px] sm:text-xs text-gray-400 mt-1">{job.date} • รับโดย: {job.createdBy}</div>
                                                         </td>
 
-                                                        <td className="px-6 py-4 align-top text-gray-700">
-                                                            <div className="mb-2 whitespace-pre-line leading-relaxed">{job.details}</div>
-                                                            {job.price && <div className="text-xs font-semibold text-gray-600 mb-2">ราคา/มัดจำ: <span className="text-emerald-700">{job.price} บาท</span></div>}
+                                                        <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top text-gray-700">
+                                                            <div className="mb-2 whitespace-pre-line leading-relaxed text-xs sm:text-sm">{job.details}</div>
+                                                            {job.price && <div className="text-[11px] sm:text-xs font-semibold text-gray-600 mb-2">ราคา/มัดจำ: <span className="text-emerald-700">{job.price} บาท</span></div>}
 
                                                             {job.fileLink && (
-                                                                <div className="flex items-center gap-2 mt-2">
+                                                                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                                                                     <a 
                                                                         href={job.fileLink} 
                                                                         target="_blank" 
                                                                         rel="noreferrer" 
-                                                                        className="inline-flex items-center text-xs bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl font-semibold shadow-xs transition"
+                                                                        className="inline-flex items-center text-[11px] sm:text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 sm:py-2 rounded-xl font-semibold shadow-xs transition"
                                                                     >
-                                                                        <i className="fas fa-cloud-arrow-down mr-1.5 text-sm"></i>
+                                                                        <i className="fas fa-cloud-arrow-down mr-1.5 text-xs sm:text-sm"></i>
                                                                         <span>ดาวน์โหลดไฟล์งาน</span>
                                                                     </a>
                                                                     <button 
                                                                         onClick={() => copyTextToClipboard(job.fileLink)} 
                                                                         title="คัดลอกลิงก์"
-                                                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl border font-medium transition"
+                                                                        className="text-[11px] sm:text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border font-medium transition"
                                                                     >
                                                                         <i className="fas fa-copy"></i>
                                                                     </button>
@@ -707,12 +693,12 @@
                                                             )}
                                                         </td>
 
-                                                        <td className="px-6 py-4 align-top">
+                                                        <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top">
                                                             <select 
                                                                 value={job.status} 
                                                                 onChange={(e) => handleChangeStatus(job.id, parseInt(e.target.value))} 
                                                                 disabled={!hasPermission}
-                                                                className={`text-xs font-semibold px-3.5 py-2 rounded-xl border outline-none ${currentStatus.color} ${!hasPermission ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                                className={`text-[11px] sm:text-xs font-semibold px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl border outline-none ${currentStatus.color} ${!hasPermission ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                                             >
                                                                 {STATUSES.filter(s => s.id !== 9 || user.role === 'graphic' || job.status === 9).map(s => (
                                                                     <option key={s.id} value={s.id} className="bg-white text-gray-800 font-normal">{s.label}</option>
@@ -720,21 +706,21 @@
                                                             </select>
                                                         </td>
 
-                                                        <td className="px-6 py-4 align-top text-right">
+                                                        <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top text-right">
                                                             <div className="flex items-center justify-end space-x-1">
-                                                                <button onClick={() => setPrintingJob(job)} title="พิมพ์ใบสั่งงาน" className="text-gray-400 hover:text-blue-600 p-2 rounded-lg">
+                                                                <button onClick={() => setPrintingJob(job)} title="พิมพ์ใบสั่งงาน" className="text-gray-400 hover:text-blue-600 p-1.5 sm:p-2 rounded-lg text-xs sm:text-sm">
                                                                     <i className="fas fa-print"></i>
                                                                 </button>
                                                                 {hasPermission && (
                                                                     confirmDeleteId === job.id ? (
                                                                         <div className="inline-flex items-center space-x-1 bg-red-50 p-1 rounded-xl">
-                                                                            <button onClick={() => handleDeleteJob(job.id)} className="bg-red-600 text-white text-xs px-2 py-1 rounded">ลบ</button>
-                                                                            <button onClick={() => setConfirmDeleteId(null)} className="text-gray-600 text-xs px-2 py-1">ยกเลิก</button>
+                                                                            <button onClick={() => handleDeleteJob(job.id)} className="bg-red-600 text-white text-[10px] sm:text-xs px-2 py-1 rounded">ลบ</button>
+                                                                            <button onClick={() => setConfirmDeleteId(null)} className="text-gray-600 text-[10px] sm:text-xs px-2 py-1">ยกเลิก</button>
                                                                         </div>
                                                                     ) : (
                                                                         <>
-                                                                            <button onClick={() => handleStartEdit(job)} title="แก้ไข" className="text-gray-400 hover:text-emerald-600 p-2 rounded-lg"><i className="fas fa-pen-to-square"></i></button>
-                                                                            <button onClick={() => setConfirmDeleteId(job.id)} title="ลบงาน" className="text-gray-400 hover:text-red-600 p-2 rounded-lg"><i className="fas fa-trash"></i></button>
+                                                                            <button onClick={() => handleStartEdit(job)} title="แก้ไข" className="text-gray-400 hover:text-emerald-600 p-1.5 sm:p-2 rounded-lg text-xs sm:text-sm"><i className="fas fa-pen-to-square"></i></button>
+                                                                            <button onClick={() => setConfirmDeleteId(job.id)} title="ลบงาน" className="text-gray-400 hover:text-red-600 p-1.5 sm:p-2 rounded-lg text-xs sm:text-sm"><i className="fas fa-trash"></i></button>
                                                                         </>
                                                                     )
                                                                 )}
@@ -752,58 +738,58 @@
 
                     {/* Modal เพิ่ม/แก้ไขงาน */}
                     {isAddingJob && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 my-8">
-                                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-                                    <h3 className="font-bold text-lg text-gray-900">
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 my-4">
+                                <div className="px-5 sm:px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                                    <h3 className="font-bold text-base sm:text-lg text-gray-900">
                                         {editingJob ? `แก้ไขงาน (${editingJob.id})` : 'เปิดใบงานใหม่'}
                                     </h3>
                                     <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 w-8 h-8 rounded-full flex items-center justify-center">
                                         <i className="fas fa-times"></i>
                                     </button>
                                 </div>
-                                <form onSubmit={handleSaveJob} className="p-6 space-y-4">
+                                <form onSubmit={handleSaveJob} className="p-5 sm:p-6 space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">ชื่องาน / ลูกค้า <span className="text-red-500">*</span></label>
-                                            <input type="text" required value={newJob.customer} onChange={e => setNewJob({...newJob, customer: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="ร้านกาแฟสด" />
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ชื่องาน / ลูกค้า <span className="text-red-500">*</span></label>
+                                            <input type="text" required value={newJob.customer} onChange={e => setNewJob({...newJob, customer: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="ร้านกาแฟสด" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรติดต่อ</label>
-                                            <input type="text" value={newJob.phone} onChange={e => setNewJob({...newJob, phone: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="081-xxx-xxxx" />
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">เบอร์โทรติดต่อ</label>
+                                            <input type="text" value={newJob.phone} onChange={e => setNewJob({...newJob, phone: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="081-xxx-xxxx" />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">วันนัดรับงาน</label>
-                                            <input type="text" value={newJob.dueDate} onChange={e => setNewJob({...newJob, dueDate: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="พรุ่งนี้ 16:00 น." />
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">วันนัดรับงาน</label>
+                                            <input type="text" value={newJob.dueDate} onChange={e => setNewJob({...newJob, dueDate: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="พรุ่งนี้ 16:00 น." />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">ราคา/มัดจำ (บาท)</label>
-                                            <input type="text" value={newJob.price} onChange={e => setNewJob({...newJob, price: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm" placeholder="650" />
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ราคา/มัดจำ (บาท)</label>
+                                            <input type="text" value={newJob.price} onChange={e => setNewJob({...newJob, price: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="650" />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียดสเปกงาน <span className="text-red-500">*</span></label>
-                                        <textarea required rows="3" value={newJob.details} onChange={e => setNewJob({...newJob, details: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none resize-none text-sm" placeholder="ขนาด, วัสดุ, ตาไก่..."></textarea>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">รายละเอียดสเปกงาน <span className="text-red-500">*</span></label>
+                                        <textarea required rows="3" value={newJob.details} onChange={e => setNewJob({...newJob, details: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none resize-none text-xs sm:text-sm" placeholder="ขนาด, วัสดุ, ตาไก่..."></textarea>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <input type="checkbox" id="urgentCheck" checked={newJob.urgent} onChange={e => setNewJob({...newJob, urgent: e.target.checked})} className="w-4 h-4 text-rose-600 rounded" />
-                                        <label htmlFor="urgentCheck" className="text-sm font-medium text-gray-700 cursor-pointer">งานด่วนพิเศษ</label>
+                                        <label htmlFor="urgentCheck" className="text-xs sm:text-sm font-medium text-gray-700 cursor-pointer">งานด่วนพิเศษ</label>
                                     </div>
                                     {user.role !== 'production' && (
                                         <div className="space-y-2 pt-3 border-t">
                                             <div className="flex justify-between items-center">
-                                                <label className="block text-xs font-bold text-gray-700">
-                                                    <i className="fas fa-link text-blue-600 mr-1.5"></i> ลิงก์ดาวน์โหลดไฟล์งาน (Gofile.io / Google Drive)
+                                                <label className="block text-[11px] sm:text-xs font-bold text-gray-700">
+                                                    <i className="fas fa-link text-blue-600 mr-1.5"></i> ลิงก์ดาวน์โหลดไฟล์ (Gofile / Drive)
                                                 </label>
                                                 <a 
                                                     href="https://gofile.io" 
                                                     target="_blank" 
                                                     rel="noreferrer" 
-                                                    className="text-[11px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200 transition"
+                                                    className="text-[10px] sm:text-[11px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200 transition"
                                                 >
-                                                    <i className="fas fa-cloud-arrow-up mr-1"></i> ไปอัปโหลด Gofile (ฟรี)
+                                                    <i className="fas fa-cloud-arrow-up mr-1"></i> ไปอัปโหลด Gofile
                                                 </a>
                                             </div>
                                             <input 
@@ -811,14 +797,13 @@
                                                 value={newJob.fileLink} 
                                                 onChange={e => setNewJob({...newJob, fileLink: e.target.value})} 
                                                 className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs font-mono bg-blue-50/40" 
-                                                placeholder="วางลิงก์ดาวน์โหลดไฟล์งาน เช่น https://gofile.io/d/xxxxxx" 
+                                                placeholder="วางลิงก์ดาวน์โหลด เช่น https://gofile.io/d/xxxxxx" 
                                             />
-                                            <p className="text-[11px] text-gray-500">อัปโหลดไฟล์งานใหญ่ (.AI, .PSD, .TIFF) ไปที่ Gofile.io หรือ Google Drive แล้วนำลิงก์มาวางที่นี่ เพื่อนช่างกดโหลดได้ทันที</p>
                                         </div>
                                     )}
-                                    <div className="pt-4 flex space-x-3">
-                                        <button type="button" onClick={resetForm} disabled={isSaving} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-sm font-medium disabled:opacity-50">ยกเลิก</button>
-                                        <button type="submit" disabled={isSaving} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-medium shadow-md disabled:opacity-70 flex items-center justify-center">
+                                    <div className="pt-3 flex space-x-3">
+                                        <button type="button" onClick={resetForm} disabled={isSaving} className="flex-1 py-3 border rounded-xl hover:bg-gray-50 text-xs sm:text-sm font-medium disabled:opacity-50">ยกเลิก</button>
+                                        <button type="submit" disabled={isSaving} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-xs sm:text-sm font-medium shadow-md disabled:opacity-70 flex items-center justify-center">
                                             {isSaving ? <><i className="fas fa-spinner fa-spin mr-2"></i> กำลังบันทึก...</> : 'บันทึก'}
                                         </button>
                                     </div>
@@ -829,47 +814,46 @@
 
                     {/* Modal พิมพ์ใบงาน */}
                     {printingJob && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border">
-                                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 no-print">
-                                    <h3 className="font-bold text-gray-800">ใบสั่งงาน (Job Order)</h3>
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border">
+                                <div className="px-5 sm:px-6 py-4 border-b flex justify-between items-center bg-gray-50 no-print">
+                                    <h3 className="font-bold text-gray-800 text-sm sm:text-base">ใบสั่งงาน (Job Order)</h3>
                                     <button onClick={() => setPrintingJob(null)} className="text-gray-400 hover:text-gray-600"><i className="fas fa-times text-xl"></i></button>
                                 </div>
-                                <div id="printable-area" className="p-8 space-y-4 bg-white text-gray-900">
+                                <div id="printable-area" className="p-6 sm:p-8 space-y-4 bg-white text-gray-900">
                                     <div className="flex justify-between items-center border-b pb-4">
                                         <div>
-                                            <h2 className="text-xl font-bold text-emerald-700">VinylShop Pro</h2>
-                                            <p className="text-xs text-gray-500">ใบสั่งผลิตและควบคุมงานป้ายไวนิล</p>
+                                            <h2 className="text-lg sm:text-xl font-bold text-emerald-700">VinylShop Pro</h2>
+                                            <p className="text-[11px] sm:text-xs text-gray-500">ใบสั่งผลิตและควบคุมงานป้ายไวนิล</p>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-lg font-mono font-bold bg-gray-100 px-3 py-1 rounded">{printingJob.id}</span>
-                                            {printingJob.urgent && <span className="block text-xs font-bold text-rose-600 mt-1">*** งานด่วนพิเศษ ***</span>}
+                                            <span className="text-base sm:text-lg font-mono font-bold bg-gray-100 px-3 py-1 rounded">{printingJob.id}</span>
+                                            {printingJob.urgent && <span className="block text-[11px] sm:text-xs font-bold text-rose-600 mt-1">*** งานด่วนพิเศษ ***</span>}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                                         <div><strong>ลูกค้า:</strong> {printingJob.customer}</div>
                                         <div><strong>เบอร์โทร:</strong> {printingJob.phone || '-'}</div>
                                         <div><strong>กำหนดนัดรับ:</strong> {printingJob.dueDate || '-'}</div>
                                         <div><strong>ราคา/มัดจำ:</strong> {printingJob.price ? `${printingJob.price} บาท` : '-'}</div>
                                     </div>
-                                    <div className="border-t border-b py-3 text-sm">
+                                    <div className="border-t border-b py-3 text-xs sm:text-sm">
                                         <strong className="block mb-1 text-gray-700">สเปก / รายละเอียดงาน:</strong>
                                         <div className="whitespace-pre-line bg-slate-50 p-3 rounded-xl border">{printingJob.details}</div>
                                     </div>
-                                    <div className="text-xs text-gray-500 flex justify-between pt-2">
+                                    <div className="text-[10px] sm:text-xs text-gray-500 flex justify-between pt-2">
                                         <span>ออกใบงานโดย: {printingJob.createdBy} ({printingJob.date})</span>
-                                        <span className="truncate max-w-[250px]">ลิงก์ไฟล์: {printingJob.fileLink || '-'}</span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs">
+                                    <div className="grid grid-cols-2 gap-8 pt-8 text-center text-[11px] sm:text-xs">
                                         <div className="border-t pt-2 border-gray-400">ผู้รับงาน / ออกแบบ</div>
                                         <div className="border-t pt-2 border-gray-400">ช่างผู้ผลิต / ตรวจสอบ</div>
                                     </div>
                                 </div>
-                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end space-x-2 no-print">
-                                    <button onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-sm font-medium">
+                                <div className="px-5 sm:px-6 py-4 bg-gray-50 border-t flex justify-end space-x-2 no-print">
+                                    <button onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium">
                                         <i className="fas fa-print mr-2"></i> พิมพ์ใบงาน
                                     </button>
-                                    <button onClick={() => setPrintingJob(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium">
+                                    <button onClick={() => setPrintingJob(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium">
                                         ปิด
                                     </button>
                                 </div>
@@ -879,34 +863,34 @@
 
                     {/* Modal ตั้งค่า Cloud / GitHub Pages */}
                     {isSharingModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border my-8">
-                                <div className="px-6 py-4 bg-gray-900 text-white flex justify-between items-center">
-                                    <h3 className="font-bold text-lg flex items-center">
-                                        <i className="fab fa-github mr-2 text-xl"></i> การตั้งค่าและการแชร์
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border my-4">
+                                <div className="px-5 sm:px-6 py-4 bg-gray-900 text-white flex justify-between items-center">
+                                    <h3 className="font-bold text-base sm:text-lg flex items-center">
+                                        <i className="fab fa-github mr-2 text-lg sm:text-xl"></i> การตั้งค่าและการแชร์
                                     </h3>
                                     <button onClick={() => setIsSharingModalOpen(false)} className="text-white/80 hover:text-white"><i className="fas fa-times text-xl"></i></button>
                                 </div>
 
-                                <div className="flex border-b bg-gray-50 px-6 pt-3 space-x-2">
-                                    <button onClick={() => setSharingTab('github')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'github' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
+                                <div className="flex border-b bg-gray-50 px-4 sm:px-6 pt-3 space-x-1 sm:space-x-2 overflow-x-auto">
+                                    <button onClick={() => setSharingTab('github')} className={`px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-t-xl border-t border-l border-r shrink-0 ${sharingTab === 'github' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
                                         1. วิธีแชร์ให้เพื่อนใช้
                                     </button>
-                                    <button onClick={() => setSharingTab('drive')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'drive' ? 'bg-white text-blue-700' : 'text-gray-500'}`}>
+                                    <button onClick={() => setSharingTab('drive')} className={`px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-t-xl border-t border-l border-r shrink-0 ${sharingTab === 'drive' ? 'bg-white text-blue-700' : 'text-gray-500'}`}>
                                         2. Google Drive ร้าน
                                     </button>
-                                    <button onClick={() => setSharingTab('cloud')} className={`px-4 py-2 text-xs font-bold rounded-t-xl border-t border-l border-r ${sharingTab === 'cloud' ? 'bg-white text-emerald-700' : 'text-gray-500'}`}>
+                                    <button onClick={() => setSharingTab('cloud')} className={`px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-bold rounded-t-xl border-t border-l border-r shrink-0 ${sharingTab === 'cloud' ? 'bg-white text-emerald-700' : 'text-gray-500'}`}>
                                         3. ตั้งค่า Google Sheets
                                     </button>
                                 </div>
 
-                                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                <div className="p-5 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto text-xs sm:text-sm">
                                     {sharingTab === 'github' && (
                                         <div className="space-y-4">
                                             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                                                 <div>
-                                                    <h4 className="font-bold text-gray-900 text-sm">ดาวน์โหลดไฟล์ <code className="bg-white px-1 rounded text-emerald-700">index.html</code></h4>
-                                                    <p className="text-xs text-gray-600 mt-0.5">ไฟล์หน้าแรกของ GitHub Pages ต้องชื่อ index.html เท่านั้น</p>
+                                                    <h4 className="font-bold text-gray-900 text-xs sm:text-sm">ดาวน์โหลดไฟล์ <code className="bg-white px-1 rounded text-emerald-700">index.html</code></h4>
+                                                    <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">ไฟล์หน้าแรกของ GitHub Pages ต้องชื่อ index.html เท่านั้น</p>
                                                 </div>
                                                 <button onClick={() => handleDownloadHtmlApp('index.html')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center shrink-0">
                                                     <i className="fas fa-download mr-2"></i> ดาวน์โหลดไฟล์
@@ -920,7 +904,7 @@
                                                 </div>
                                                 <div className="border rounded-2xl p-3.5 bg-white">
                                                     <div className="font-bold mb-1">2. อัปโหลดไฟล์</div>
-                                                    <p className="text-gray-600">คลิก "uploading an existing file" ลากไฟล์ <code className="bg-gray-100 px-1">index.html</code> ใส่แล้วกด Commit changes</p>
+                                                    <p className="text-gray-600">ลากไฟล์ <code className="bg-gray-100 px-1">index.html</code> ใส่แล้วกด Commit changes</p>
                                                 </div>
                                                 <div className="border rounded-2xl p-3.5 bg-white">
                                                     <div className="font-bold mb-1">3. เปิด Pages</div>
@@ -937,8 +921,8 @@
                                     {sharingTab === 'drive' && (
                                         <div className="space-y-3">
                                             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                                                <h4 className="font-bold text-blue-900 text-sm mb-1"><i className="fab fa-google-drive mr-2 text-blue-600"></i> Google Drive ของร้าน</h4>
-                                                <p className="text-xs text-blue-800 mb-3">ลิงก์โฟลเดอร์ร้านที่คุณบันทึกไว้ถูกฝังในระบบแล้ว พนักงานทุกคนสามารถกดเปิดเพื่อรับส่งไฟล์ใหญ่ได้</p>
+                                                <h4 className="font-bold text-blue-900 text-xs sm:text-sm mb-1"><i className="fab fa-google-drive mr-2 text-blue-600"></i> Google Drive ของร้าน</h4>
+                                                <p className="text-[11px] sm:text-xs text-blue-800 mb-3">ลิงก์โฟลเดอร์ร้านที่คุณบันทึกไว้ถูกฝังในระบบแล้ว พนักงานทุกคนสามารถกดเปิดเพื่อรับส่งไฟล์ใหญ่ได้</p>
                                                 <input type="text" value={shopDriveUrl} onChange={e => setShopDriveUrl(e.target.value)} className="w-full px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl mb-2 font-mono" />
                                                 <div className="flex gap-2">
                                                     <button onClick={() => copyTextToClipboard(shopDriveUrl)} className="px-3 py-1.5 bg-white text-blue-700 border rounded-xl text-xs font-semibold">คัดลอกลิงก์</button>
@@ -951,29 +935,27 @@
                                     {sharingTab === 'cloud' && (
                                         <div className="space-y-3">
                                             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-3">
-                                                <h4 className="font-bold text-emerald-900 text-sm mb-2"><i className="fas fa-table mr-2 text-emerald-600"></i> เชื่อมต่อ Google Sheets (ฟรี)</h4>
-                                                <p className="text-xs text-emerald-800 mb-2">เพื่อให้พนักงานทุกคนเห็นคิวงานตรงกันแบบ Real-time</p>
-                                                <ol className="text-xs text-emerald-800 space-y-1.5 list-decimal pl-4">
+                                                <h4 className="font-bold text-emerald-900 text-xs sm:text-sm mb-2"><i className="fas fa-table mr-2 text-emerald-600"></i> เชื่อมต่อ Google Sheets (ฟรี)</h4>
+                                                <ol className="text-[11px] sm:text-xs text-emerald-800 space-y-1.5 list-decimal pl-4">
                                                     <li>เปิดหน้าเว็บ <a href="https://sheets.new" target="_blank" rel="noreferrer" className="underline text-blue-600">สร้าง Google Sheets ใหม่</a> ตั้งชื่อชีตว่า <strong>Jobs</strong></li>
                                                     <li>ไปที่เมนู <strong>ส่วนขยาย (Extensions)</strong> &gt; <strong>Apps Script</strong></li>
-                                                    <li>ก๊อปปี้โค้ด <code className="bg-emerald-100 px-1 rounded">Code.gs</code> ที่เตรียมไว้ วางแทนที่โค้ดเดิมทั้งหมด แล้วกดบันทึก</li>
-                                                    <li>กดปุ่มสีน้ำเงิน <strong>Deploy (การทำให้ใช้งานได้)</strong> มุมขวาบน &gt; <strong>New Deployment</strong></li>
-                                                    <li>เลือกประเภท <strong>Web app</strong>, และตรง Who has access ให้เลือก <strong>Anyone (ทุกคน)</strong></li>
-                                                    <li>กด Deploy นำ URL ที่ลงท้ายด้วย <code>/exec</code> มาวางด้านล่างนี้</li>
+                                                    <li>ก๊อปปี้โค้ด <code className="bg-emerald-100 px-1 rounded">Code.gs</code> ไปวางแทนที่ แล้วกดบันทึก</li>
+                                                    <li>กด <strong>Deploy</strong> &gt; <strong>New Deployment</strong> &gt; เลือกประเภท <strong>Web app</strong></li>
+                                                    <li>Who has access เลือก <strong>Anyone (ทุกคน)</strong> แล้วกด Deploy</li>
                                                 </ol>
                                             </div>
-                                            <label className="block text-sm font-bold text-gray-700 mb-1">Web App URL จาก Apps Script:</label>
-                                            <textarea rows="2" value={gasUrlInput} onChange={e => setGasUrlInput(e.target.value)} placeholder='https://script.google.com/macros/s/..../exec' className="w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 rounded-xl border"></textarea>
+                                            <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-1">Web App URL จาก Apps Script:</label>
+                                            <textarea rows="2" value={gasUrlInput} onChange={e => setGasUrlInput(e.target.value)} placeholder='https://script.google.com/macros/s/..../exec' className="w-full p-3 text-[11px] font-mono bg-slate-900 text-emerald-400 rounded-xl border"></textarea>
                                             <div className="flex justify-end">
-                                                <button onClick={handleSaveGasUrl} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700">บันทึกและเชื่อมต่อ Sheets</button>
+                                                <button onClick={handleSaveGasUrl} className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-emerald-700">บันทึกและเชื่อมต่อ Sheets</button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
-                                    <span className="text-xs text-gray-500">สถานะ: <strong className={isCloudConnected ? "text-emerald-600" : "text-amber-600"}>{isCloudConnected ? "Cloud Online (Google Sheets)" : "Local Mode"}</strong></span>
-                                    <button onClick={() => setIsSharingModalOpen(false)} className="px-5 py-2 bg-gray-800 text-white rounded-xl text-sm font-medium">ปิด</button>
+                                <div className="px-5 sm:px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                                    <span className="text-[11px] sm:text-xs text-gray-500">สถานะ: <strong className={isCloudConnected ? "text-emerald-600" : "text-amber-600"}>{isCloudConnected ? "Cloud Online" : "Local Mode"}</strong></span>
+                                    <button onClick={() => setIsSharingModalOpen(false)} className="px-4 sm:px-5 py-2 bg-gray-800 text-white rounded-xl text-xs sm:text-sm font-medium">ปิด</button>
                                 </div>
                             </div>
                         </div>
