@@ -670,15 +670,15 @@
                                                                         href={job.fileLink} 
                                                                         target="_blank" 
                                                                         rel="noreferrer" 
-                                                                        className="inline-flex items-center text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl font-semibold shadow-xs transition"
+                                                                        className="inline-flex items-center text-xs bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl font-semibold shadow-xs transition"
                                                                     >
                                                                         <i className="fas fa-cloud-arrow-down mr-1.5 text-sm"></i>
-                                                                        <span>ดาวน์โหลดไฟล์งานจากลิงก์</span>
+                                                                        <span>ดาวน์โหลดไฟล์งาน</span>
                                                                     </a>
                                                                     <button 
                                                                         onClick={() => copyTextToClipboard(job.fileLink)} 
                                                                         title="คัดลอกลิงก์"
-                                                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1.5 rounded-xl border font-medium transition"
+                                                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl border font-medium transition"
                                                                     >
                                                                         <i className="fas fa-copy"></i>
                                                                     </button>
@@ -771,12 +771,28 @@
                                         <label htmlFor="urgentCheck" className="text-sm font-medium text-gray-700 cursor-pointer">งานด่วนพิเศษ</label>
                                     </div>
                                     {user.role !== 'production' && (
-                                        <div className="space-y-1.5 pt-2 border-t">
-                                            <label className="block text-xs font-bold text-gray-700">
-                                                <i className="fas fa-link text-blue-600 mr-1.5"></i> ลิงก์ดาวน์โหลดไฟล์งาน (Gofile.io / Google Drive)
-                                            </label>
-                                            <input type="text" value={newJob.fileLink} onChange={e => setNewJob({...newJob, fileLink: e.target.value})} className="w-full px-3.5 py-2 rounded-xl border outline-none text-xs font-mono bg-blue-50/50" placeholder="https://gofile.io/d/xxxxxx" />
-                                            <p className="text-[11px] text-gray-500">อัปโหลดไฟล์งานใหญ่ (.AI, .PSD, .TIFF) ไปที่ Gofile.io แล้วนำลิงก์มาวางที่นี่ เพื่อนช่างกดโหลดได้ทันที</p>
+                                        <div className="space-y-2 pt-3 border-t">
+                                            <div className="flex justify-between items-center">
+                                                <label className="block text-xs font-bold text-gray-700">
+                                                    <i className="fas fa-link text-blue-600 mr-1.5"></i> ลิงก์ดาวน์โหลดไฟล์งาน (Gofile.io / Google Drive)
+                                                </label>
+                                                <a 
+                                                    href="https://gofile.io" 
+                                                    target="_blank" 
+                                                    rel="noreferrer" 
+                                                    className="text-[11px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200 transition"
+                                                >
+                                                    <i className="fas fa-cloud-arrow-up mr-1"></i> ไปอัปโหลด Gofile (ฟรี)
+                                                </a>
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                value={newJob.fileLink} 
+                                                onChange={e => setNewJob({...newJob, fileLink: e.target.value})} 
+                                                className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs font-mono bg-blue-50/40" 
+                                                placeholder="วางลิงก์ดาวน์โหลดไฟล์งาน เช่น https://gofile.io/d/xxxxxx" 
+                                            />
+                                            <p className="text-[11px] text-gray-500">อัปโหลดไฟล์งานใหญ่ (.AI, .PSD, .TIFF) ไปที่ Gofile.io หรือ Google Drive แล้วนำลิงก์มาวางที่นี่ เพื่อนช่างกดโหลดได้ทันที</p>
                                         </div>
                                     )}
                                     <div className="pt-4 flex space-x-3">
