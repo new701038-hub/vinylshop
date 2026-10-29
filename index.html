@@ -504,10 +504,24 @@
 
             const currentRoleObj = ROLES.find(r => r.id === user.role);
             const visibleStatuses = user.role === 'graphic' ? STATUSES : STATUSES.filter(s => s.id !== 9);
-            const statusCounts = visibleStatuses.map(status => ({
-                ...status,
-                count: jobs.filter(job => job.status === status.id).length
-            }));
+
+            // ฟังก์ชันแปลงค่าราคาเป็นตัวเลข (รองรับลูกน้ำและข้อความปน เช่น "1,200" หรือ "500 บาท")
+            const parsePriceValue = (priceStr) => {
+                if (!priceStr) return 0;
+                const cleaned = String(priceStr).replace(/,/g, '');
+                const match = cleaned.match(/\d+(\.\d+)?/);
+                return match ? parseFloat(match[0]) : 0;
+            };
+
+            const statusCounts = visibleStatuses.map(status => {
+                const jobsInStatus = jobs.filter(job => job.status === status.id);
+                const totalAmount = jobsInStatus.reduce((sum, job) => sum + parsePriceValue(job.price), 0);
+                return {
+                    ...status,
+                    count: jobsInStatus.length,
+                    totalAmount
+                };
+            });
 
             const filteredJobs = jobs.filter(job => {
                 const matchStatus = statusFilter === null ? job.status !== 8 : job.status === statusFilter;
@@ -520,6 +534,8 @@
                     (job.createdBy && String(job.createdBy).toLowerCase().includes(query));
                 return matchStatus && matchSearch;
             });
+
+            const filteredTotalAmount = filteredJobs.reduce((sum, job) => sum + parsePriceValue(job.price), 0);
 
             return (
                 <div className="min-h-screen bg-slate-50 pb-16">
@@ -631,15 +647,18 @@
                                     <div 
                                         key={status.id} 
                                         onClick={() => setStatusFilter(prev => prev === status.id ? null : status.id)}
-                                        className={`bg-white rounded-2xl border p-2.5 sm:p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
+                                        className={`bg-white rounded-2xl border p-2.5 sm:p-3 flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
                                             isSelected ? 'ring-2 ring-emerald-600 border-emerald-600 bg-emerald-50/40 shadow-md -translate-y-0.5' : 'border-gray-200 hover:border-emerald-300'
                                         }`}
                                     >
-                                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-1.5 sm:mb-2 ${status.color.split(' ')[0]} ${status.color.split(' ')[1]}`}>
-                                            <i className={`fas ${status.icon} text-xs sm:text-base`}></i>
+                                        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-1 sm:mb-1.5 ${status.color.split(' ')[0]} ${status.color.split(' ')[1]}`}>
+                                            <i className={`fas ${status.icon} text-xs sm:text-sm`}></i>
                                         </div>
-                                        <span className="text-lg sm:text-2xl font-bold text-gray-900 leading-tight">{status.count}</span>
-                                        <span className="text-[10px] sm:text-xs font-medium text-gray-600 mt-0.5 sm:mt-1 line-clamp-1">{status.label}</span>
+                                        <span className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">{status.count}</span>
+                                        <span className="text-[10px] sm:text-xs font-medium text-gray-600 mt-0.5 line-clamp-1">{status.label}</span>
+                                        <span className={`text-[10px] sm:text-[11px] font-semibold mt-1 px-1.5 py-0.5 rounded-md w-full truncate ${status.totalAmount > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-gray-50 text-gray-400'}`}>
+                                            ฿{status.totalAmount.toLocaleString('th-TH')}
+                                        </span>
                                     </div>
                                 );
                             })}
@@ -647,11 +666,16 @@
 
                         {/* ตารางแสดงรายการงาน */}
                         <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-200 bg-gray-50/70 flex justify-between items-center">
-                                <h3 className="text-xs sm:text-base font-bold text-gray-800 truncate">
-                                    <i className="fas fa-list-check mr-2 text-emerald-600"></i>
-                                    {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
-                                </h3>
+                            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-200 bg-gray-50/70 flex flex-wrap justify-between items-center gap-2">
+                                <div className="flex items-center flex-wrap gap-2">
+                                    <h3 className="text-xs sm:text-base font-bold text-gray-800">
+                                        <i className="fas fa-list-check mr-2 text-emerald-600"></i>
+                                        {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
+                                    </h3>
+                                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full">
+                                        มูลค่ารวม: ฿{filteredTotalAmount.toLocaleString('th-TH')} บาท
+                                    </span>
+                                </div>
                                 {statusFilter !== null && (
                                     <button onClick={() => setStatusFilter(null)} className="text-xs font-medium text-emerald-600 hover:underline shrink-0 ml-2">
                                         แสดงทั้งหมด
