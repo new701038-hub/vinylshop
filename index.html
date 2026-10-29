@@ -64,6 +64,7 @@
             { id: 3, label: 'รอผลิต', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: 'fa-hourglass-half' },
             { id: 4, label: 'กำลังผลิต', color: 'bg-purple-100 text-purple-800 border-purple-300', icon: 'fa-print' },
             { id: 5, label: 'ผลิตเสร็จ', color: 'bg-green-100 text-green-800 border-green-300', icon: 'fa-check-circle' },
+            { id: 11, label: 'รอช่างติดตั้ง', color: 'bg-amber-100 text-amber-800 border-amber-300', icon: 'fa-screwdriver-wrench' },
             { id: 6, label: 'พร้อมส่ง', color: 'bg-teal-100 text-teal-800 border-teal-300', icon: 'fa-truck' },
             { id: 7, label: 'ส่งสาขาอื่นทำ', color: 'bg-indigo-100 text-indigo-800 border-indigo-300', icon: 'fa-paper-plane' },
             { id: 8, label: 'จบงานแล้ว', color: 'bg-slate-200 text-slate-700 border-slate-300', icon: 'fa-box-archive' },
@@ -415,11 +416,11 @@
                 showToast('คัดลอกลิงก์แล้ว');
             };
 
-            // อัปเดตสิทธิ์การแก้ไขให้รองรับสถานะ 10 (รอลูกค้ายืนยัน) สำหรับเสมียนและกราฟฟิก
+            // อัปเดตสิทธิ์การแก้ไขให้รองรับสถานะ 10 (รอลูกค้ายืนยัน) และ 11 (รอช่างติดตั้ง)
             const canEditJob = (statusId, roleId) => {
-                if (roleId === 'graphic') return [1, 2, 10, 6, 7, 8, 9].includes(statusId);
-                if (roleId === 'clerk') return [1, 2, 10, 6, 7, 8].includes(statusId);
-                if (roleId === 'production') return [3, 4, 5, 6].includes(statusId);
+                if (roleId === 'graphic') return [1, 2, 10, 11, 6, 7, 8, 9].includes(statusId);
+                if (roleId === 'clerk') return [1, 2, 10, 11, 6, 7, 8].includes(statusId);
+                if (roleId === 'production') return [3, 4, 5, 11, 6].includes(statusId);
                 return true;
             };
 
@@ -589,8 +590,8 @@
                             </div>
                         </div>
 
-                        {/* แผงการ์ดสถานะงาน (Responsive Grid รองรับ 9-10 สถานะ) */}
-                        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 ${user.role === 'graphic' ? 'lg:grid-cols-10' : 'lg:grid-cols-9'} gap-2 sm:gap-2.5 mb-6 sm:mb-8`}>
+                        {/* แผงการ์ดสถานะงาน (Responsive Grid รองรับ 10-11 สถานะ) */}
+                        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 ${user.role === 'graphic' ? 'lg:grid-cols-6 xl:grid-cols-11' : 'lg:grid-cols-5 xl:grid-cols-10'} gap-2 sm:gap-2.5 mb-6 sm:mb-8`}>
                             {statusCounts.map(status => {
                                 const isSelected = statusFilter === status.id;
                                 return (
