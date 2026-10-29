@@ -77,9 +77,17 @@
             { id: 'production', label: 'ฝ่ายผลิต (พิมพ์ / ตัด / ตอกตาไก่)', icon: 'fa-gears' },
         ];
 
+        const JOB_TYPES = [
+            { id: 'vinyl', label: 'ป้ายไวนิล', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+            { id: 'sticker', label: 'สติ๊กเกอร์', color: 'bg-pink-100 text-pink-700 border-pink-200' },
+            { id: 'standee', label: 'สแตนดี้/ฟิวเจอร์บอร์ด', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+            { id: 'lightbox', label: 'ตู้ไฟ/งานโครง', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+            { id: 'other', label: 'งานอื่นๆ', color: 'bg-gray-100 text-gray-700 border-gray-200' }
+        ];
+
         const INITIAL_JOBS = [
-            { id: 'JOB-101', customer: 'ร้านกาแฟสด Me Coffee', phone: '081-234-5678', dueDate: 'พรุ่งนี้ 15:00 น.', price: '450', details: 'ไวนิลหน้าเดียว 3x1.5 เมตร พับขอบตอกตาไก่ 4 มุม ขอโทนสีมินิมอล', status: 1, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: true, createdAt: Date.now() - 40000 },
-            { id: 'JOB-102', customer: 'มินิมาร์ท 24 ชม. สาขา 2', phone: '089-999-8877', dueDate: '25 ต.ค.', price: '1,200', details: 'ป้ายฟิวเจอร์บอร์ด 60x80 ซม. จำนวน 5 แผ่น (โปรโมชั่นหน้าร้าน)', status: 2, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false, createdAt: Date.now() - 30000 },
+            { id: 'JOB-101', customer: 'ร้านกาแฟสด Me Coffee', phone: '081-234-5678', dueDate: 'พรุ่งนี้ 15:00 น.', price: '1500', deposit: '500', jobType: 'vinyl', details: 'ไวนิลหน้าเดียว 3x1.5 เมตร พับขอบตอกตาไก่ 4 มุม ขอโทนสีมินิมอล', status: 1, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: true, createdAt: Date.now() - 40000 },
+            { id: 'JOB-102', customer: 'มินิมาร์ท 24 ชม. สาขา 2', phone: '089-999-8877', dueDate: '25 ต.ค.', price: '1200', deposit: '1200', jobType: 'standee', details: 'ป้ายฟิวเจอร์บอร์ด 60x80 ซม. จำนวน 5 แผ่น (โปรโมชั่นหน้าร้าน)', status: 2, createdBy: 'แอน', date: new Date().toLocaleDateString('th-TH'), fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false, createdAt: Date.now() - 300000000 },
         ];
 
         class ErrorBoundary extends Component {
@@ -141,7 +149,7 @@
             });
             
             const [shopDriveUrl, setShopDriveUrl] = useState(DEFAULT_SHOP_DRIVE_URL);
-            const [newJob, setNewJob] = useState({ customer: '', phone: '', dueDate: '', price: '', details: '', fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false });
+            const [newJob, setNewJob] = useState({ customer: '', phone: '', dueDate: '', price: '', deposit: '', jobType: 'vinyl', details: '', fileLink: DEFAULT_SHOP_DRIVE_URL, urgent: false });
             
             const [searchQuery, setSearchQuery] = useState('');
             const [statusFilter, setStatusFilter] = useState(null);
@@ -169,10 +177,14 @@
 
             useEffect(() => {
                 let intervalId = null;
+                let fetchFailCount = 0; // ตัวนับจำนวนครั้งที่ Error เพื่อหยุดการดึงข้อมูลถ้าพังติดกัน
 
                 const fetchFromSheets = async (url) => {
                     try {
-                        const response = await fetch(url);
+                        const response = await fetch(url, { method: 'GET', redirect: 'follow' });
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                         const fetchedJobs = await response.json();
                         if (Array.isArray(fetchedJobs)) {
                             fetchedJobs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -185,17 +197,28 @@
                             }));
                             setJobs(formattedJobs);
                             setIsCloudConnected(true);
+                            fetchFailCount = 0; // รีเซ็ตการนับเมื่อเชื่อมต่อสำเร็จ
                         }
                     } catch (err) {
-                        console.error("Sheets sync error:", err);
+                        fetchFailCount++;
+                        if (fetchFailCount === 1) {
+                            console.warn("Cloud Sync Warning: ไม่สามารถดึงข้อมูลจาก Google Sheets ได้ (อาจติด Permission หรือ URL ผิด):", err.message);
+                        }
                         setIsCloudConnected(false);
+                        
+                        // ถ้าระบบ Fetch พังติดกัน 3 ครั้ง ให้หยุดดึงข้อมูลอัตโนมัติเพื่อลดการทำงานของเครื่อง
+                        if (fetchFailCount >= 3 && intervalId) {
+                            clearInterval(intervalId);
+                            console.warn("หยุดการซิงค์อัตโนมัติชั่วคราว กรุณาตรวจสอบลิงก์ Web App URL");
+                        }
+                    } finally {
+                        setIsLoadingCloud(false);
                     }
-                    setIsLoadingCloud(false);
                 };
 
                 const savedUrl = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (savedUrl && savedUrl.includes('script.google.com')) {
-                    setIsCloudConnected(true);
+                    setIsCloudConnected(true); // คาดหวังว่าจะต่อได้ไปก่อน
                     fetchFromSheets(savedUrl);
                     intervalId = setInterval(() => fetchFromSheets(savedUrl), 10000);
                 } else {
@@ -217,13 +240,14 @@
                 const url = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (url) {
                     try {
-                        await fetch(url, {
+                        const response = await fetch(url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify({ action: 'update', job: jobData })
                         });
+                        if (!response.ok) throw new Error('Network response was not ok');
                     } catch (err) {
-                        console.error('Save to Sheets error:', err);
+                        console.warn('Save to Sheets Error (ทำงานแบบ Offline แทน):', err.message);
                     }
                 }
             };
@@ -232,13 +256,14 @@
                 const url = localStorage.getItem('vinylshop_gas_url') || DEFAULT_GAS_URL;
                 if (url) {
                     try {
-                        await fetch(url, {
+                        const response = await fetch(url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify({ action: 'delete', job: { id: jobId } })
                         });
+                        if (!response.ok) throw new Error('Network response was not ok');
                     } catch (err) {
-                        console.error('Delete from Sheets error:', err);
+                        console.warn('Delete from Sheets Error:', err.message);
                     }
                 }
             };
@@ -269,6 +294,8 @@
                             phone: newJob.phone || '',
                             dueDate: newJob.dueDate || '',
                             price: newJob.price || '',
+                            deposit: newJob.deposit || '',
+                            jobType: newJob.jobType || 'vinyl',
                             details: newJob.details,
                             urgent: newJob.urgent,
                             fileLink: newJob.fileLink || DEFAULT_SHOP_DRIVE_URL
@@ -284,6 +311,8 @@
                             phone: newJob.phone || '',
                             dueDate: newJob.dueDate || '',
                             price: newJob.price || '',
+                            deposit: newJob.deposit || '',
+                            jobType: newJob.jobType || 'vinyl',
                             details: newJob.details,
                             status: 1,
                             createdBy: user.name,
@@ -309,6 +338,8 @@
                     phone: job.phone || '',
                     dueDate: job.dueDate || '',
                     price: job.price || '',
+                    deposit: job.deposit || '',
+                    jobType: job.jobType || 'vinyl',
                     details: job.details || '',
                     fileLink: job.fileLink || DEFAULT_SHOP_DRIVE_URL,
                     urgent: job.urgent || false
@@ -319,7 +350,7 @@
             const resetForm = () => {
                 setIsAddingJob(false);
                 setEditingJob(null);
-                setNewJob({ customer: '', phone: '', dueDate: '', price: '', details: '', fileLink: shopDriveUrl, urgent: false });
+                setNewJob({ customer: '', phone: '', dueDate: '', price: '', deposit: '', jobType: 'vinyl', details: '', fileLink: shopDriveUrl, urgent: false });
                 setIsSaving(false);
             };
 
@@ -449,6 +480,14 @@
                 showToast('คัดลอกลิงก์แล้ว');
             };
 
+            // ฟีเจอร์ใหม่: คีย์ลัดสเปกงาน และ วันที่
+            const handleQuickSpec = (text) => {
+                setNewJob(prev => ({ ...prev, details: prev.details ? prev.details + ' ' + text : text }));
+            };
+            const handleQuickDate = (text) => {
+                setNewJob(prev => ({ ...prev, dueDate: text }));
+            };
+
             // อัปเดตสิทธิ์การแก้ไขให้รองรับสถานะ 10 (รอลูกค้ายืนยัน) และ 11 (รอช่างติดตั้ง)
             const canEditJob = (statusId, roleId) => {
                 if (roleId === 'graphic') return [1, 2, 10, 11, 6, 7, 8, 9].includes(statusId);
@@ -523,6 +562,7 @@
                 };
             });
 
+            // อัปเดตฟีเจอร์: เรียงงานด่วนขึ้นบนสุดเสมอ
             const filteredJobs = jobs.filter(job => {
                 const matchStatus = statusFilter === null ? job.status !== 8 : job.status === statusFilter;
                 const query = searchQuery.toLowerCase().trim();
@@ -533,9 +573,14 @@
                     (job.phone && String(job.phone).toLowerCase().includes(query)) ||
                     (job.createdBy && String(job.createdBy).toLowerCase().includes(query));
                 return matchStatus && matchSearch;
+            }).sort((a, b) => {
+                if (a.urgent && !b.urgent) return -1;
+                if (!a.urgent && b.urgent) return 1;
+                return (b.createdAt || 0) - (a.createdAt || 0);
             });
 
             const filteredTotalAmount = filteredJobs.reduce((sum, job) => sum + parsePriceValue(job.price), 0);
+            const filteredTotalBalance = filteredJobs.reduce((sum, job) => sum + Math.max(0, parsePriceValue(job.price) - parsePriceValue(job.deposit)), 0);
 
             return (
                 <div className="min-h-screen bg-slate-50 pb-16">
@@ -656,9 +701,11 @@
                                         </div>
                                         <span className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">{status.count}</span>
                                         <span className="text-[10px] sm:text-xs font-medium text-gray-600 mt-0.5 line-clamp-1">{status.label}</span>
-                                        <span className={`text-[10px] sm:text-[11px] font-semibold mt-1 px-1.5 py-0.5 rounded-md w-full truncate ${status.totalAmount > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-gray-50 text-gray-400'}`}>
-                                            ฿{status.totalAmount.toLocaleString('th-TH')}
-                                        </span>
+                                        {user.role !== 'production' && (
+                                            <span className={`text-[10px] sm:text-[11px] font-semibold mt-1 px-1.5 py-0.5 rounded-md w-full truncate ${status.totalAmount > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-gray-50 text-gray-400'}`}>
+                                                ฿{status.totalAmount.toLocaleString('th-TH')}
+                                            </span>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -672,9 +719,18 @@
                                         <i className="fas fa-list-check mr-2 text-emerald-600"></i>
                                         {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
                                     </h3>
-                                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full">
-                                        มูลค่ารวม: ฿{filteredTotalAmount.toLocaleString('th-TH')} บาท
-                                    </span>
+                                    {user.role !== 'production' && (
+                                        <>
+                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full">
+                                                มูลค่ารวม: ฿{filteredTotalAmount.toLocaleString('th-TH')}
+                                            </span>
+                                            {filteredTotalBalance > 0 && (
+                                                <span className="bg-red-100 text-red-800 border border-red-200 text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full">
+                                                    ค้างชำระรวม: ฿{filteredTotalBalance.toLocaleString('th-TH')}
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                                 {statusFilter !== null && (
                                     <button onClick={() => setStatusFilter(null)} className="text-xs font-medium text-emerald-600 hover:underline shrink-0 ml-2">
@@ -705,15 +761,30 @@
                                             filteredJobs.map(job => {
                                                 const currentStatus = STATUSES.find(s => s.id === job.status) || STATUSES[0];
                                                 const hasPermission = canEditJob(job.status, user.role);
+                                                
+                                                // ตรวจสอบงานค้างนานเกิน 3 วัน (3 * 24 * 60 * 60 * 1000 มิลลิวินาที) และยังไม่จบงาน
+                                                const daysInSystem = Math.floor((Date.now() - job.createdAt) / 86400000);
+                                                const isStale = daysInSystem >= 3 && ![5, 6, 8, 11].includes(job.status);
+                                                
+                                                const jobTypeObj = JOB_TYPES.find(t => t.id === job.jobType) || JOB_TYPES[4];
+                                                const balance = parsePriceValue(job.price) - parsePriceValue(job.deposit);
 
                                                 return (
-                                                    <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors ${job.urgent ? 'bg-rose-50/20' : ''}`}>
+                                                    <tr key={job.id} className={`hover:bg-slate-50/80 transition-colors ${job.urgent ? 'bg-rose-50/20' : ''} ${isStale && !job.urgent ? 'bg-orange-50/10' : ''}`}>
                                                         <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top">
-                                                            <div className="flex flex-wrap items-center gap-1 mb-1">
+                                                            <div className="flex flex-wrap items-center gap-1 mb-1.5">
                                                                 <span className="text-[10px] sm:text-xs font-mono font-bold bg-gray-100 text-gray-700 px-1.5 sm:px-2 py-0.5 rounded border">{job.id}</span>
+                                                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${jobTypeObj.color}`}>
+                                                                    {jobTypeObj.label}
+                                                                </span>
                                                                 {job.urgent && (
                                                                     <span className="bg-rose-100 text-rose-700 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full">
                                                                         <i className="fas fa-fire mr-0.5"></i> ด่วน
+                                                                    </span>
+                                                                )}
+                                                                {isStale && !job.urgent && (
+                                                                    <span className="bg-orange-100 text-orange-700 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full" title={`รับงานมานานกว่า ${daysInSystem} วันแล้ว`}>
+                                                                        <i className="fas fa-clock mr-0.5"></i> ค้าง {daysInSystem} วัน
                                                                     </span>
                                                                 )}
                                                                 {job.dueDate && (
@@ -723,13 +794,38 @@
                                                                 )}
                                                             </div>
                                                             <div className="font-bold text-gray-900 text-sm sm:text-base">{job.customer}</div>
-                                                            {job.phone && <div className="text-[11px] sm:text-xs text-emerald-700 font-medium mt-0.5"><i className="fas fa-phone mr-1"></i>{job.phone}</div>}
-                                                            <div className="text-[10px] sm:text-xs text-gray-400 mt-1">{job.date} • รับโดย: {job.createdBy}</div>
+                                                            {job.phone && (
+                                                                <div className="text-[11px] sm:text-xs text-emerald-700 font-medium mt-0.5">
+                                                                    <a href={`tel:${job.phone.replace(/[^0-9]/g, '')}`} className="inline-flex items-center hover:bg-emerald-100 p-1 -ml-1 rounded transition" title="กดเพื่อโทรออก">
+                                                                        <i className="fas fa-phone-volume mr-1.5 animate-pulse"></i> โทร: {job.phone}
+                                                                    </a>
+                                                                </div>
+                                                            )}
+                                                            <div className="text-[10px] sm:text-xs text-gray-400 mt-1.5">{job.date} • รับโดย: {job.createdBy}</div>
                                                         </td>
 
                                                         <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top text-gray-700">
                                                             <div className="mb-2 whitespace-pre-line leading-relaxed text-xs sm:text-sm">{job.details}</div>
-                                                            {job.price && <div className="text-[11px] sm:text-xs font-semibold text-gray-600 mb-2">ราคา/มัดจำ: <span className="text-emerald-700">{job.price} บาท</span></div>}
+                                                            
+                                                            {(job.price || job.deposit) && user.role !== 'production' && (
+                                                                <div className="mt-2 text-[11px] sm:text-xs bg-gray-50 p-2 rounded-xl border border-gray-200 flex flex-col gap-1 w-full max-w-[240px]">
+                                                                    <div className="flex justify-between text-gray-600">
+                                                                        <span>ราคารวม: {job.price || '0'}</span>
+                                                                        <span>มัดจำ: {job.deposit || '0'}</span>
+                                                                    </div>
+                                                                    {balance > 0 ? (
+                                                                        <div className="flex justify-between font-bold text-red-600 border-t border-gray-200 pt-1.5 mt-0.5">
+                                                                            <span>ค้างชำระ:</span>
+                                                                            <span>฿{balance.toLocaleString('th-TH')}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex justify-between font-bold text-emerald-600 border-t border-gray-200 pt-1.5 mt-0.5">
+                                                                            <span>สถานะยอด:</span>
+                                                                            <span><i className="fas fa-check-circle mr-1"></i>ชำระครบแล้ว</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
 
                                                             {job.fileLink && (
                                                                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
@@ -816,22 +912,67 @@
                                         </div>
                                         <div>
                                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">เบอร์โทรติดต่อ</label>
-                                            <input type="text" value={newJob.phone} onChange={e => setNewJob({...newJob, phone: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="081-xxx-xxxx" />
+                                            <input 
+                                                type="text" 
+                                                value={newJob.phone} 
+                                                onChange={e => {
+                                                    const phone = e.target.value;
+                                                    let autoCustomer = newJob.customer;
+                                                    // ระบบจำชื่อลูกค้าเก่าจากเบอร์โทร
+                                                    if (phone.length >= 9 && !autoCustomer) {
+                                                        const pastJob = jobs.find(j => j.phone === phone);
+                                                        if (pastJob) {
+                                                            autoCustomer = pastJob.customer;
+                                                            showToast(`พบประวัติลูกค้า: ${autoCustomer}`, 'info');
+                                                        }
+                                                    }
+                                                    setNewJob({...newJob, phone, customer: autoCustomer});
+                                                }} 
+                                                className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 transition" 
+                                                placeholder="081-xxx-xxxx (พิมพ์เบอร์จะดึงชื่อออโต้)" 
+                                            />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">วันนัดรับงาน</label>
-                                            <input type="text" value={newJob.dueDate} onChange={e => setNewJob({...newJob, dueDate: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="พรุ่งนี้ 16:00 น." />
+                                            <input type="text" value={newJob.dueDate} onChange={e => setNewJob({...newJob, dueDate: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm mb-1.5" placeholder="พรุ่งนี้ 16:00 น." />
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {['เย็นนี้', 'พรุ่งนี้เช้า', 'พรุ่งนี้เย็น', 'รอก่อน'].map(t => (
+                                                    <button key={t} type="button" onClick={() => handleQuickDate(t)} className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded text-[10px] sm:text-xs transition">{t}</button>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ราคา/มัดจำ (บาท)</label>
-                                            <input type="text" value={newJob.price} onChange={e => setNewJob({...newJob, price: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="650" />
-                                        </div>
+                                        {user.role !== 'production' && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ราคารวม (฿)</label>
+                                                    <input type="text" value={newJob.price} onChange={e => setNewJob({...newJob, price: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm" placeholder="เช่น 1500" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">มัดจำแล้ว (฿)</label>
+                                                    <input type="text" value={newJob.deposit} onChange={e => setNewJob({...newJob, deposit: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm text-emerald-600 font-medium" placeholder="เช่น 500" />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">ประเภทงาน <span className="text-red-500">*</span></label>
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {JOB_TYPES.map(t => (
+                                                <label key={t.id} className={`cursor-pointer px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition ${newJob.jobType === t.id ? t.color + ' ring-2 ring-emerald-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                                    <input type="radio" name="jobType" value={t.id} checked={newJob.jobType === t.id} onChange={e => setNewJob({...newJob, jobType: e.target.value})} className="hidden" />
+                                                    {t.label}
+                                                </label>
+                                            ))}
+                                        </div>
                                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">รายละเอียดสเปกงาน <span className="text-red-500">*</span></label>
-                                        <textarea required rows="3" value={newJob.details} onChange={e => setNewJob({...newJob, details: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none resize-none text-xs sm:text-sm" placeholder="ขนาด, วัสดุ, ตาไก่..."></textarea>
+                                        <textarea required rows="3" value={newJob.details} onChange={e => setNewJob({...newJob, details: e.target.value})} className="w-full px-3.5 py-2.5 rounded-xl border outline-none resize-none text-xs sm:text-sm mb-1.5" placeholder="ขนาด, วัสดุ, ตาไก่..."></textarea>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {['ไวนิล 1 หน้า', 'หน้า-หลัง', 'ธงญี่ปุ่น', 'พับขอบตอกตาไก่', 'พับขอบปล่อยจืด', 'ร้อยท่อ บน-ล่าง', 'ปล่อยขอบเผื่อขึง', 'ตาไก่ทุก 50ซม.'].map(t => (
+                                                <button key={t} type="button" onClick={() => handleQuickSpec(t)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded text-[10px] sm:text-xs transition shadow-sm">{t}</button>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <input type="checkbox" id="urgentCheck" checked={newJob.urgent} onChange={e => setNewJob({...newJob, urgent: e.target.checked})} className="w-4 h-4 text-rose-600 rounded" />
@@ -894,9 +1035,25 @@
                                     <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                                         <div><strong>ลูกค้า:</strong> {printingJob.customer}</div>
                                         <div><strong>เบอร์โทร:</strong> {printingJob.phone || '-'}</div>
+                                        <div><strong>ประเภทงาน:</strong> {JOB_TYPES.find(t => t.id === printingJob.jobType)?.label || '-'}</div>
                                         <div><strong>กำหนดนัดรับ:</strong> {printingJob.dueDate || '-'}</div>
-                                        <div><strong>ราคา/มัดจำ:</strong> {printingJob.price ? `${printingJob.price} บาท` : '-'}</div>
                                     </div>
+                                    {user.role !== 'production' && (
+                                        <div className="bg-gray-50 border p-3 rounded-xl grid grid-cols-3 gap-2 text-xs sm:text-sm text-center">
+                                            <div>
+                                                <div className="text-gray-500 mb-1">ราคารวม</div>
+                                                <div className="font-bold text-gray-800">฿{parsePriceValue(printingJob.price).toLocaleString('th-TH')}</div>
+                                            </div>
+                                            <div className="border-l border-r">
+                                                <div className="text-gray-500 mb-1">มัดจำแล้ว</div>
+                                                <div className="font-bold text-emerald-600">฿{parsePriceValue(printingJob.deposit).toLocaleString('th-TH')}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-gray-500 mb-1">ค้างชำระ</div>
+                                                <div className="font-bold text-red-600">฿{Math.max(0, parsePriceValue(printingJob.price) - parsePriceValue(printingJob.deposit)).toLocaleString('th-TH')}</div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="border-t border-b py-3 text-xs sm:text-sm">
                                         <strong className="block mb-1 text-gray-700">สเปก / รายละเอียดงาน:</strong>
                                         <div className="whitespace-pre-line bg-slate-50 p-3 rounded-xl border">{printingJob.details}</div>
