@@ -146,6 +146,8 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [statusFilter, setStatusFilter] = useState(null);
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+            const [completingJobId, setCompletingJobId] = useState(null);
+            const [receiverName, setReceiverName] = useState('');
             const [toast, setToast] = useState(null);
 
             const importInputRef = useRef(null);
@@ -366,11 +368,42 @@
             const handleChangeStatus = async (id, newStatus) => {
                 const target = jobs.find(j => j.id === id);
                 if (!target) return;
+
+                // หากเลือกสถานะ "จบงานแล้ว" (id: 8) ให้เปิดหน้าต่างกรอกชื่อผู้มารับงานก่อน
+                if (newStatus === 8) {
+                    setCompletingJobId(id);
+                    setReceiverName('');
+                    return;
+                }
+
                 const updated = { ...target, status: newStatus };
                 setJobs(jobs.map(j => j.id === id ? updated : j));
                 await saveJobToCloud(updated);
                 const stLabel = STATUSES.find(s => s.id === newStatus)?.label;
                 showToast(`ย้ายงานไปยังสถานะ "${stLabel}" แล้ว`);
+            };
+
+            const handleConfirmCompleteJob = async (e) => {
+                e.preventDefault();
+                if (!completingJobId || !receiverName.trim()) return;
+                const target = jobs.find(j => j.id === completingJobId);
+                if (!target) return;
+
+                const receiveTime = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                const receiverNote = `\n[ผู้มารับงาน: ${receiverName.trim()} (${receiveTime})]`;
+                const updatedDetails = (target.details || '').replace(/\n\[ผู้มารับงาน:.*?\]$/g, '') + receiverNote;
+
+                const updated = {
+                    ...target,
+                    status: 8,
+                    details: updatedDetails
+                };
+
+                setJobs(jobs.map(j => j.id === completingJobId ? updated : j));
+                setCompletingJobId(null);
+                setReceiverName('');
+                await saveJobToCloud(updated);
+                showToast(`จบงานเรียบร้อย (ผู้รับ: ${receiverName.trim()})`);
             };
 
             const handleExportBackup = () => {
@@ -860,6 +893,49 @@
                                         ปิด
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal กรอกชื่อผู้มารับงานเมื่อเลือก "จบงานแล้ว" */}
+                    {completingJobId && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                                <div className="px-5 sm:px-6 py-4 border-b flex justify-between items-center bg-emerald-600 text-white">
+                                    <h3 className="font-bold text-base sm:text-lg flex items-center">
+                                        <i className="fas fa-box-archive mr-2"></i> ยืนยันการจบงาน ({completingJobId})
+                                    </h3>
+                                    <button onClick={() => setCompletingJobId(null)} className="text-white/80 hover:text-white w-8 h-8 rounded-full flex items-center justify-center">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <form onSubmit={handleConfirmCompleteJob} className="p-5 sm:p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
+                                            ชื่อผู้มารับงาน / ช่องทางที่ส่งมอบ <span className="text-red-500">*</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            required 
+                                            autoFocus
+                                            value={receiverName} 
+                                            onChange={e => setReceiverName(e.target.value)} 
+                                            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none text-xs sm:text-sm" 
+                                            placeholder="เช่น คุณสมชายมารับเอง, วินมอเตอร์ไซค์, ขนส่ง..." 
+                                        />
+                                        <p className="text-[11px] text-gray-500 mt-1.5">
+                                            * ระบบจะบันทึกชื่อผู้มารับพร้อมวัน-เวลาต่อท้ายในรายละเอียดงานโดยอัตโนมัติ
+                                        </p>
+                                    </div>
+                                    <div className="pt-2 flex space-x-3">
+                                        <button type="button" onClick={() => setCompletingJobId(null)} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-xs sm:text-sm font-medium">
+                                            ยกเลิก
+                                        </button>
+                                        <button type="submit" className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-xs sm:text-sm font-medium shadow-md">
+                                            ยืนยันจบงาน
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}
