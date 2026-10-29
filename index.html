@@ -55,7 +55,7 @@
         const { useState, useEffect, useRef, Component } = React;
 
         const DEFAULT_SHOP_DRIVE_URL = 'https://drive.google.com/drive/folders/1tj0L-I8Ba59tHRmJwsvrMZMT21TmNhC1?usp=sharing';
-        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvInMBqFNSbh4rg4BL5tod-CaiCB_oZV-k2blqrpJx4SvQekFXOTXOej2BF9m1ZEiZ/exec';
+        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwt5Cf8Mm5mIwn0lDzfsymUNeNO5UsyHRbKBuoGb5UEpPc2ncO2fRXrOyvExOsMm2aY/exec';
 
         const STATUSES = [
             { id: 1, label: 'รอออกแบบ', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: 'fa-clock' },
@@ -80,8 +80,7 @@
         const JOB_TYPES = [
             { id: 'vinyl', label: 'ป้ายไวนิล', color: 'bg-blue-100 text-blue-700 border-blue-200' },
             { id: 'sticker', label: 'สติ๊กเกอร์', color: 'bg-pink-100 text-pink-700 border-pink-200' },
-            { id: 'standee', label: 'สแตนดี้/ฟิวเจอร์บอร์ด', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-            { id: 'lightbox', label: 'ตู้ไฟ/งานโครง', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+            { id: 'artpaper', label: 'กระดาษอาร์ตมัน', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
             { id: 'other', label: 'งานอื่นๆ', color: 'bg-gray-100 text-gray-700 border-gray-200' }
         ];
 
@@ -774,8 +773,8 @@
                                                         <td className="px-4 sm:px-6 py-3.5 sm:py-4 align-top">
                                                             <div className="flex flex-wrap items-center gap-1 mb-1.5">
                                                                 <span className="text-[10px] sm:text-xs font-mono font-bold bg-gray-100 text-gray-700 px-1.5 sm:px-2 py-0.5 rounded border">{job.id}</span>
-                                                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${jobTypeObj.color}`}>
-                                                                    {jobTypeObj.label}
+                                                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${JOB_TYPES.find(t => t.id === job.jobType)?.color || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                                                    {JOB_TYPES.find(t => t.id === job.jobType)?.label || 'งานอื่นๆ'}
                                                                 </span>
                                                                 {job.urgent && (
                                                                     <span className="bg-rose-100 text-rose-700 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full">
@@ -1035,7 +1034,7 @@
                                     <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                                         <div><strong>ลูกค้า:</strong> {printingJob.customer}</div>
                                         <div><strong>เบอร์โทร:</strong> {printingJob.phone || '-'}</div>
-                                        <div><strong>ประเภทงาน:</strong> {JOB_TYPES.find(t => t.id === printingJob.jobType)?.label || '-'}</div>
+                                        <div><strong>ประเภทงาน:</strong> {JOB_TYPES.find(t => t.id === printingJob.jobType)?.label || 'งานอื่นๆ'}</div>
                                         <div><strong>กำหนดนัดรับ:</strong> {printingJob.dueDate || '-'}</div>
                                     </div>
                                     {user.role !== 'production' && (
