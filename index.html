@@ -419,7 +419,10 @@
                 const target = jobs.find(j => j.id === completingJobId);
                 if (!target) return;
 
-                const receiveTime = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                // แก้ไขการดึงเวลาให้รองรับทุกเบราว์เซอร์และมือถือทุกรุ่น
+                const d = new Date();
+                const receiveTime = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${(d.getFullYear() + 543).toString().slice(-2)} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} น.`;
+                
                 const receiverNote = `\n[ผู้มารับงาน: ${receiverName.trim()} (${receiveTime})]`;
                 const updatedDetails = (target.details || '').replace(/\n\[ผู้มารับงาน:.*?\]$/g, '') + receiverNote;
 
@@ -662,7 +665,7 @@
                                 <p className="text-xs sm:text-sm text-gray-500">แตะที่การ์ดสถานะด้านล่างเพื่อกรองดูเฉพาะงานที่ต้องการ</p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2.5">
-                                <div className="relative">
+                                <div className="relative flex-1 sm:flex-none">
                                     <i className="fas fa-search absolute left-3.5 top-3 text-gray-400 text-xs sm:text-sm"></i>
                                     <input 
                                         type="text" 
@@ -677,9 +680,14 @@
                                         </button>
                                     )}
                                 </div>
-                                <button onClick={() => setIsAddingJob(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center text-xs sm:text-sm">
-                                    <i className="fas fa-plus mr-2"></i> รับงานใหม่
-                                </button>
+                                <div className="flex gap-2.5">
+                                    <button onClick={() => setStatusFilter(statusFilter === 8 ? null : 8)} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center text-xs sm:text-sm ${statusFilter === 8 ? 'bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}>
+                                        <i className="fas fa-box-archive sm:mr-2"></i> <span className="hidden sm:inline">งานที่จบแล้ว</span>
+                                    </button>
+                                    <button onClick={() => setIsAddingJob(true)} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center text-xs sm:text-sm">
+                                        <i className="fas fa-plus mr-2"></i> รับงานใหม่
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -716,7 +724,7 @@
                                 <div className="flex items-center flex-wrap gap-2">
                                     <h3 className="text-xs sm:text-base font-bold text-gray-800">
                                         <i className="fas fa-list-check mr-2 text-emerald-600"></i>
-                                        {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ไม่รวมจบงานแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
+                                        {statusFilter === null ? 'รายการงานกำลังดำเนินการ (ซ่อนงานที่จบแล้ว)' : `กรองสถานะ: ${STATUSES.find(s => s.id === statusFilter)?.label}`}
                                     </h3>
                                     {user.role !== 'production' && (
                                         <>
@@ -795,7 +803,7 @@
                                                             <div className="font-bold text-gray-900 text-sm sm:text-base">{job.customer}</div>
                                                             {job.phone && (
                                                                 <div className="text-[11px] sm:text-xs text-emerald-700 font-medium mt-0.5">
-                                                                    <a href={`tel:${job.phone.replace(/[^0-9]/g, '')}`} className="inline-flex items-center hover:bg-emerald-100 p-1 -ml-1 rounded transition" title="กดเพื่อโทรออก">
+                                                                    <a href={`tel:${String(job.phone).replace(/[^0-9]/g, '')}`} className="inline-flex items-center hover:bg-emerald-100 p-1 -ml-1 rounded transition" title="กดเพื่อโทรออก">
                                                                         <i className="fas fa-phone-volume mr-1.5 animate-pulse"></i> โทร: {job.phone}
                                                                     </a>
                                                                 </div>
